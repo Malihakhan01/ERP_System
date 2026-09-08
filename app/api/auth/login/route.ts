@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { DEMO_USERS, AuthUser } from "@/lib/auth/auth-types";
-import { executeQuery } from "@/lib/mysql/db";
+import { executeQuery, executeStatement } from "@/lib/mysql/db";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     const normalizedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
 
-    // 1. Check MySQL users table first with exact password match
+    // 1. Check MySQL users table first with bcrypt and plaintext support
     try {
       const dbUsers = await executeQuery<any>(
         "SELECT * FROM users WHERE LOWER(email) = ? AND is_active = 1 LIMIT 1",
@@ -27,8 +28,19 @@ export async function POST(request: Request) {
       if (dbUsers.length > 0) {
         const dbUser = dbUsers[0];
 
-        // Strict password check against MySQL record
-        if (dbUser.password !== trimmedPassword) {
+        let passwordValid = false;
+        if (
+          dbUser.password &&
+          (dbUser.password.startsWith("$2a$") ||
+            dbUser.password.startsWith("$2b$") ||
+            dbUser.password.startsWith("$2y$"))
+        ) {
+          passwordValid = await bcrypt.compare(trimmedPassword, dbUser.password);
+        } else {
+          passwordValid = dbUser.password === trimmedPassword;
+        }
+
+        if (!passwordValid) {
           return NextResponse.json(
             {
               success: false,
@@ -78,6 +90,22 @@ export async function POST(request: Request) {
           maxAge: 60 * 60 * 24 * 7,
           path: "/",
         });
+
+        res.cookies.set("factoryos_user", encodeURIComponent(user.email), {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+          path: "/",
+        });
+
+        // Record audit log asynchronously
+        try {
+          await executeStatement(
+            "INSERT INTO audit_logs (user_id, user_email, action, module, details) VALUES (?, ?, ?, ?, ?)",
+            [typeof user.id === "number" ? user.id : null, user.email, "USER_LOGIN_SUCCESS", "auth", JSON.stringify({ role: user.role, plant: user.plant })]
+          );
+        } catch {}
 
         return res;
       }
@@ -130,6 +158,22 @@ export async function POST(request: Request) {
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
+
+      res.cookies.set("factoryos_user", encodeURIComponent(user.email), {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/",
+      });
+
+      // Record audit log asynchronously
+      try {
+        await executeStatement(
+          "INSERT INTO audit_logs (user_id, user_email, action, module, details) VALUES (?, ?, ?, ?, ?)",
+          [null, user.email, "DEMO_LOGIN_SUCCESS", "auth", JSON.stringify({ role: user.role, plant: user.plant })]
+        );
+      } catch {}
 
       return res;
     }

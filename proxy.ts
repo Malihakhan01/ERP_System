@@ -1,32 +1,60 @@
-// proxy.ts  (Next.js 16 replaces middleware.ts with proxy.ts)
-// Auth proxy stub — in Phase 1 this passes all requests through.
-// In Phase 2, enable the Supabase session refresh and route protection.
-
+// proxy.ts (Next.js 16 Request Proxy & Route Guard)
 import { NextResponse } from "next/server";
-// import { createServerClient } from "@supabase/ssr";  // Uncomment in Phase 2
+import type { NextRequest } from "next/server";
 
-export async function proxy() {
-  // ----------------------------------------------------------------
-  // PHASE 2: Uncomment and complete the following block to enforce
-  // authentication on the (dashboard) route group.
-  //
-  // const supabase = createServerClient(
-  //   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  //   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  //   { cookies: { ... } }
-  // );
-  // const { data: { session } } = await supabase.auth.getSession();
-  // if (!session && request.nextUrl.pathname.startsWith("/dashboard")) {
-  //   return NextResponse.redirect(new URL("/login", request.url));
-  // }
-  // ----------------------------------------------------------------
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // 1. Allow static files, Next.js internal chunks, and images to bypass
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|pdf|css|js)$/)
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Check for active session cookie
+  const sessionCookie = request.cookies.get("factoryos_session")?.value;
+  const userCookie = request.cookies.get("factoryos_user")?.value;
+  const hasSession = Boolean(sessionCookie || userCookie);
+
+  // 3. Login page access
+  if (pathname === "/login") {
+    // If already authenticated, redirect straight to dashboard
+    if (hasSession) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 4. API routes (non-auth): allow or pass through (they handle their own verification)
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // 5. Root page redirect
+  if (pathname === "/") {
+    if (hasSession) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // 6. Protected dashboard routes
+  if (!hasSession) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    // Match all routes except static files and Next.js internals
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Match all routes except static assets
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

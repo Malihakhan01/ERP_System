@@ -294,30 +294,18 @@ function mapRecordToRow(record: Partial<TrackingShipmentRecord>): any {
  * Fetch all active tracking records from Supabase PostgreSQL
  */
 export async function getTrackingRecordsFromSupabase(): Promise<TrackingShipmentRecord[]> {
-  if (!isSupabaseConfigured()) {
-    return getLocalTrackingRecords().filter((r) => !r.isArchived);
-  }
-
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("tracking_shipments")
-      .select("*")
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn("Supabase fetch error for tracking_shipments, using fallback:", error.message);
-      return getLocalTrackingRecords().filter((r) => !r.isArchived);
+    const res = await fetch("/api/tracking");
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      setLocalTrackingRecords(json.data);
+      return json.data;
     }
-
-    const domain = (data || []).map(mapRowToTrackingRecord);
-    setLocalTrackingRecords(domain);
-    return domain;
   } catch (err) {
-    console.error("Failed to query tracking_shipments from Supabase:", err);
-    return getLocalTrackingRecords().filter((r) => !r.isArchived);
+    console.error("Failed to query tracking records from MySQL API:", err);
   }
+
+  return getLocalTrackingRecords().filter((r) => !r.isArchived);
 }
 
 /**
@@ -351,44 +339,26 @@ export async function createTrackingRecordInSupabase(
   const updatedLocal = [newRecord, ...current];
   setLocalTrackingRecords(updatedLocal);
 
-  if (!isSupabaseConfigured()) {
-    return newRecord;
-  }
-
   try {
-    const supabase = createClient();
-    const row = mapRecordToRow(newRecord);
-    delete row.id; // Allow PostgreSQL UUID generation
-
-    const { data, error } = await supabase
-      .from("tracking_shipments")
-      .insert(row)
-      .select()
-      .single();
-
-    if (error || !data) {
-      console.warn("Supabase insert error for tracking_shipments, saved locally:", error?.message);
-      return newRecord;
+    const res = await fetch("/api/tracking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: newRecord.orderId,
+        productionJobId: newRecord.productionJobId,
+        destinationPort: newRecord.destination,
+        estimatedDelivery: newRecord.estimatedDelivery,
+      }),
+    });
+    const json = await res.json();
+    if (json.success && json.data?.id) {
+      newRecord.id = String(json.data.id);
     }
-
-    const created = mapRowToTrackingRecord(data);
-
-    // If linked to production job, append creation event to production_timeline
-    if (created.productionJobId) {
-      await addProductionTimelineEvent(
-        created.productionJobId,
-        "tracking_shipment_created",
-        "Shipment Tracking Released",
-        `Shipment ${created.trackingNumber} initiated via ${created.carrier} to ${created.destination}.`,
-        "Logistics Dispatcher"
-      );
-    }
-
-    return created;
   } catch (err) {
-    console.error("Failed to insert tracking_shipment in Supabase:", err);
-    return newRecord;
+    console.error("Failed to insert tracking record via MySQL API:", err);
   }
+
+  return newRecord;
 }
 
 /**

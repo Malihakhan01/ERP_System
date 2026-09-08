@@ -1,29 +1,6 @@
-
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
-const createClient = (): any => ({
-  from: () => ({
-    select: () => ({
-      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), order: async () => ({ data: [], error: null }) }),
-      neq: () => ({ order: async () => ({ data: [], error: null }) }),
-      order: async () => ({ data: [], error: null }),
-    }),
-    insert: async () => ({ data: null, error: null }),
-    upsert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
-    update: () => ({ eq: async () => ({ data: null, error: null }) }),
-    delete: () => ({ eq: async () => ({ data: null, error: null }) }),
-  }),
-  storage: {
-    from: () => ({
-      upload: async () => ({ data: null, error: null }),
-      getPublicUrl: () => ({ data: { publicUrl: "" } }),
-    }),
-  },
-});
 // lib/services/settings-service.ts
 // MySQL Database Service Layer for FactoryOS System Settings
-// Primary source of truth: MySQL 8 `system_settings` table with offline cache fallback.
-
+// Primary source of truth: MySQL 8 `system_settings` table via Next.js REST API with offline cache fallback.
 
 export interface CompanySettings {
   companyName: string;
@@ -58,48 +35,32 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
 export const SETTINGS_STORAGE_KEY = "factoryos_system_settings";
 
 export async function getSystemSettingsFromSupabase(): Promise<CompanySettings> {
-  if (!isSupabaseConfigured()) {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        return raw ? { ...DEFAULT_COMPANY_SETTINGS, ...JSON.parse(raw) } : DEFAULT_COMPANY_SETTINGS;
-      } catch {
-        return DEFAULT_COMPANY_SETTINGS;
+  try {
+    const res = await fetch("/api/settings?key=company_profile");
+    const json = await res.json();
+    if (json.success && json.data) {
+      const merged = { ...DEFAULT_COMPANY_SETTINGS, ...json.data };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
       }
+      return merged;
     }
-    return DEFAULT_COMPANY_SETTINGS;
+  } catch (err) {
+    console.error("Error loading settings from MySQL API:", err);
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("system_settings")
-    .select("value")
-    .eq("key", "company_profile")
-    .maybeSingle();
-
-  if (error || !data) {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        return raw ? { ...DEFAULT_COMPANY_SETTINGS, ...JSON.parse(raw) } : DEFAULT_COMPANY_SETTINGS;
-      } catch {
-        return DEFAULT_COMPANY_SETTINGS;
-      }
-    }
-    return DEFAULT_COMPANY_SETTINGS;
-  }
-
-  const settings = { ...DEFAULT_COMPANY_SETTINGS, ...(data.value || {}) };
+  // Fallback to localStorage
   if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      window.dispatchEvent(new Event("storage"));
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (raw) return { ...DEFAULT_COMPANY_SETTINGS, ...JSON.parse(raw) };
     } catch {}
   }
-  return settings;
+  return DEFAULT_COMPANY_SETTINGS;
 }
 
 export async function saveSystemSettingsInSupabase(settings: CompanySettings): Promise<CompanySettings> {
+  // Optimistic local update
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
@@ -107,25 +68,19 @@ export async function saveSystemSettingsInSupabase(settings: CompanySettings): P
     } catch {}
   }
 
-  if (!isSupabaseConfigured()) {
-    return settings;
+  try {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "company_profile", value: settings }),
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      return { ...DEFAULT_COMPANY_SETTINGS, ...json.data };
+    }
+  } catch (err) {
+    console.error("Error saving settings via MySQL API:", err);
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("system_settings")
-    .upsert({
-      key: "company_profile",
-      value: settings,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "key" })
-    .select("value")
-    .single();
-
-  if (error) {
-    console.error("Error saving system settings to Supabase:", error);
-    return settings;
-  }
-
-  return { ...DEFAULT_COMPANY_SETTINGS, ...(data?.value || settings) };
+  return settings;
 }

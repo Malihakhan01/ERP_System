@@ -887,4 +887,40 @@ CREATE TABLE `failed_jobs` (
     `failed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- 27. SYSTEM SETTINGS & CONFIGURATION
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `system_settings`;
+CREATE TABLE `system_settings` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `key` VARCHAR(100) NOT NULL UNIQUE,
+    `value` JSON NOT NULL,
+    `updated_by` VARCHAR(150) NULL DEFAULT 'System Admin',
+    `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_settings_key` (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `system_settings` (`key`, `value`) VALUES
+('company_profile', '{"companyName":"FactoryOS Garments Ltd.","ntnNumber":"8912401-7","strnNumber":"32-77-8912-401-19","currency":"PKR","shift1Time":"08:00 - 17:00","shift2Time":"17:00 - 01:00","activeLinesCount":"6","maxAdvancePercent":"200","maxRepaymentMonths":"12","invoicePrefix":"INV-2026-","quotationPrefix":"QTN-2026-","bankAccount":"Habib Bank Limited — A/C 019283746501"}')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+
+-- -----------------------------------------------------------------------------
+-- 28. AUDIT LOGS & SYSTEM ACTIVITY
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `audit_logs`;
+CREATE TABLE `audit_logs` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT UNSIGNED NULL,
+    `user_email` VARCHAR(150) NULL,
+    `action` VARCHAR(100) NOT NULL,
+    `module` VARCHAR(50) NOT NULL,
+    `entity_id` VARCHAR(100) NULL,
+    `details` JSON NULL,
+    `ip_address` VARCHAR(45) NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_audit_module` (`module`),
+    INDEX `idx_audit_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

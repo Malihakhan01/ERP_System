@@ -303,39 +303,23 @@ function mapDispatchCartonToRow(c: Partial<DispatchCartonRecord>): any {
  * Fetch all Dispatch Records from Supabase PostgreSQL
  */
 export async function getDispatchRecordsFromSupabase(): Promise<DispatchRecord[]> {
-  if (!isSupabaseConfigured()) {
-    const list = getLocalDispatchRecords();
-    const cartons = getLocalDispatchCartons();
-    return list.map((d) => ({
-      ...d,
-      cartons: cartons.filter((c) => c.dispatchId === d.id),
-    }));
-  }
-
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("dispatch_records")
-      .select("*, cartons:dispatch_cartons(*)")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn("Supabase fetch error for dispatch_records, using fallback:", error.message);
-      return getLocalDispatchRecords();
+    const res = await fetch("/api/dispatch");
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      setLocalDispatchRecords(json.data);
+      return json.data;
     }
-
-    const domain = (data || []).map((r: any) => {
-      const mapped = mapRowToDispatchRecord(r);
-      mapped.cartons = (r.cartons || []).map(mapRowToDispatchCarton);
-      return mapped;
-    });
-
-    setLocalDispatchRecords(domain);
-    return domain;
   } catch (err) {
-    console.error("Failed to query dispatch_records from Supabase:", err);
-    return getLocalDispatchRecords();
+    console.error("Failed to query dispatch records from MySQL API:", err);
   }
+
+  const list = getLocalDispatchRecords();
+  const cartons = getLocalDispatchCartons();
+  return list.map((d) => ({
+    ...d,
+    cartons: cartons.filter((c) => c.dispatchId === d.id),
+  }));
 }
 
 /**
@@ -523,37 +507,32 @@ export async function createDispatchInSupabase(payload: {
     payload.dispatchedByName
   );
 
-  if (!isSupabaseConfigured()) {
-    return newDispatch;
-  }
-
   try {
-    const supabase = createClient();
-    const row = mapDispatchRecordToRow(newDispatch);
-    delete row.id;
-
-    const { data, error } = await supabase.from("dispatch_records").insert(row).select().single();
-    if (error || !data) {
-      console.warn("Supabase dispatch_records insert error, using local:", error?.message);
-      return newDispatch;
-    }
-
-    const createdRecord = mapRowToDispatchRecord(data);
-
-    // Insert dispatch cartons
-    const cartonRows = dispatchCartons.map((dc) => {
-      const cr = mapDispatchCartonToRow({ ...dc, dispatchId: createdRecord.id });
-      delete cr.id;
-      return cr;
+    const res = await fetch("/api/dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: newDispatch.orderId,
+        carrierName: newDispatch.carrier,
+        trackingRef: newDispatch.carrierTrackingNumber || newDispatch.shippingReference,
+        containerNumber: newDispatch.vehicleContainerNo,
+        sealNumber: newDispatch.shippingReference,
+        totalCartons: newDispatch.totalCartons,
+        totalPieces: newDispatch.totalPieces,
+        grossWeight: newDispatch.totalGrossWeightKg,
+        shippingMethod: newDispatch.shippingMethod,
+        destinationPort: `${newDispatch.destinationCity || ""}, ${newDispatch.destinationCountry || ""}`.trim(),
+      }),
     });
-
-    await supabase.from("dispatch_cartons").insert(cartonRows);
-
-    return createdRecord;
+    const json = await res.json();
+    if (json.success && json.data?.id) {
+      newDispatch.id = String(json.data.id);
+    }
   } catch (err) {
-    console.error("Failed to insert dispatch in Supabase:", err);
-    return newDispatch;
+    console.error("Failed to insert dispatch via MySQL API:", err);
   }
+
+  return newDispatch;
 }
 
 /**

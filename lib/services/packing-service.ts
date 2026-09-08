@@ -578,26 +578,33 @@ export async function createPackingCartonInSupabase(payload: {
     newCarton.packerName
   );
 
-  if (!isSupabaseConfigured()) {
-    return newCarton;
-  }
-
   try {
-    const supabase = createClient();
-    const row = mapPackingCartonToRow(newCarton);
-    delete row.id;
-
-    const { data, error } = await supabase.from("packing_cartons").insert(row).select().single();
-    if (error || !data) {
-      console.warn("Supabase carton insert error, using local:", error?.message);
-      return newCarton;
+    const res = await fetch("/api/packing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productionJobId: newCarton.productionJobId,
+        cartonIndex: newCarton.cartonIndex,
+        packingType: newCarton.packingType,
+        totalUnits: newCarton.totalUnitsInCarton,
+        grossWeight: newCarton.grossWeightKg,
+        netWeight: newCarton.netWeightKg,
+        length: newCarton.lengthCm,
+        width: newCarton.widthCm,
+        height: newCarton.heightCm,
+        status: newCarton.status,
+        packedBy: newCarton.packerName,
+      }),
+    });
+    const json = await res.json();
+    if (json.success && json.data?.id) {
+      newCarton.id = String(json.data.id);
     }
-
-    return mapRowToPackingCarton(data);
   } catch (err) {
-    console.error("Failed to insert carton in Supabase:", err);
-    return newCarton;
+    console.error("Failed to insert carton via MySQL API:", err);
   }
+
+  return newCarton;
 }
 
 /**

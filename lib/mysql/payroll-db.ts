@@ -103,16 +103,39 @@ export async function createPayrollRunInMySQL(data: Partial<PayrollRun>): Promis
   if (records.length === 0) {
     const employees = await getEmployeesFromMySQL();
     const activeEmps = employees.filter((e) => e.employmentInfo.status === "Active");
-
-    records = activeEmps.map((emp) => {
+    const computedRecords: PayrollRecordItem[] = [];
+    for (const emp of activeEmps) {
       const base = Number(emp.salaryInfo.monthlySalary || 35000);
-      const pieceRate = emp.salaryInfo.salaryType === "piece_rate" ? 18500 : 0;
-      const ot = 3000;
-      const advance = 2000;
-      const gross = base + pieceRate + ot;
-      const net = gross - advance;
 
-      return {
+      // 1. Fetch piece-rate earnings from operator_production_logs
+      let pieceRate = 0;
+      try {
+        const pieceRows = await executeQuery<any>(
+          "SELECT COALESCE(SUM(`total_earnings`), 0) as total_piece FROM `operator_production_logs` WHERE `employee_id` = ?",
+          [emp.id]
+        );
+        pieceRate = Number(pieceRows[0]?.total_piece || 0);
+      } catch {}
+
+      // 2. Fetch approved monthly advance deductions from employee_advances
+      let advance = 0;
+      let remainingAdv = 0;
+      try {
+        const advRows = await executeQuery<any>(
+          "SELECT monthly_deduction, remaining_balance FROM `employee_advances` WHERE `employee_id` = ? AND `status` = 'Active' LIMIT 1",
+          [emp.id]
+        );
+        if (advRows.length > 0) {
+          advance = Number(advRows[0].monthly_deduction || 0);
+          remainingAdv = Number(advRows[0].remaining_balance || 0);
+        }
+      } catch {}
+
+      const ot = 2500;
+      const gross = base + pieceRate + ot;
+      const net = Math.max(0, gross - advance);
+
+      computedRecords.push({
         id: `rec_${emp.id}`,
         employeeId: emp.id,
         employeeNumber: emp.employeeNumber,
@@ -127,14 +150,14 @@ export async function createPayrollRunInMySQL(data: Partial<PayrollRun>): Promis
         presentDays: 26,
         absentDays: 0,
         absentDeduction: 0,
-        overtimeHours: 12,
+        overtimeHours: 10,
         overtimeRatePerHour: 250,
         overtimeAmount: ot,
         pieceRateAmount: pieceRate,
         allowances: 0,
         grossSalary: gross,
         advanceDeduction: advance,
-        remainingAdvanceBalance: 0,
+        remainingAdvanceBalance: Math.max(0, remainingAdv - advance),
         taxDeduction: 0,
         otherDeductions: 0,
         totalDeductions: advance,
@@ -142,8 +165,9 @@ export async function createPayrollRunInMySQL(data: Partial<PayrollRun>): Promis
         paymentStatus: "Pending",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
-    });
+      });
+    }
+    records = computedRecords;
   }
 
   const totalGross = records.reduce((acc, r) => acc + (r.grossSalary || 0), 0);

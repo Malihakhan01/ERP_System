@@ -525,39 +525,23 @@ function mapQAReworkToRow(rwk: Partial<QAReworkRecord>): any {
  * Fetch all QA Inspections from Supabase PostgreSQL
  */
 export async function getQAInspectionsFromSupabase(): Promise<QAInspectionRecord[]> {
-  if (!isSupabaseConfigured()) {
-    const list = getLocalQAInspections();
-    const defects = getLocalQADefects();
-    return list.map((insp) => ({
-      ...insp,
-      defects: defects.filter((d) => d.qaInspectionId === insp.id),
-    }));
-  }
-
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("qa_inspections")
-      .select("*, defects:qa_defects(*)")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn("Supabase fetch error for qa_inspections, using fallback:", error.message);
-      return getLocalQAInspections();
+    const res = await fetch("/api/qa");
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      setLocalQAInspections(json.data);
+      return json.data;
     }
-
-    const domain = (data || []).map((r: any) => {
-      const mapped = mapRowToQAInspection(r);
-      mapped.defects = (r.defects || []).map(mapRowToQADefect);
-      return mapped;
-    });
-
-    setLocalQAInspections(domain);
-    return domain;
   } catch (err) {
-    console.error("Failed to query qa_inspections from Supabase:", err);
-    return getLocalQAInspections();
+    console.error("Failed to load QA inspections from MySQL API:", err);
   }
+
+  const list = getLocalQAInspections();
+  const defects = getLocalQADefects();
+  return list.map((insp) => ({
+    ...insp,
+    defects: defects.filter((d) => d.qaInspectionId === insp.id),
+  }));
 }
 
 /**
@@ -655,31 +639,30 @@ export async function createQAInspectionInSupabase(payload: {
     payload.inspectorName
   );
 
-  if (!isSupabaseConfigured()) {
-    return newInsp;
-  }
-
   try {
-    const supabase = createClient();
-    const row = mapQAInspectionToRow(newInsp);
-    delete row.id;
-
-    const { data, error } = await supabase
-      .from("qa_inspections")
-      .insert(row)
-      .select()
-      .single();
-
-    if (error || !data) {
-      console.warn("Supabase insert error for qa_inspections, using local:", error?.message);
-      return newInsp;
+    const res = await fetch("/api/qa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productionJobId: newInsp.productionJobId,
+        inspectionStage: newInsp.inspectionStage,
+        inspectionLevel: newInsp.inspectionLevel,
+        aqlLevel: newInsp.aqlLevel,
+        lotSize: newInsp.lotQuantity,
+        sampleSize: newInsp.sampleSize,
+        inspectorName: newInsp.inspectorName,
+        notes: newInsp.notes,
+      }),
+    });
+    const json = await res.json();
+    if (json.success && json.data?.id) {
+      newInsp.id = String(json.data.id);
     }
-
-    return mapRowToQAInspection(data);
   } catch (err) {
-    console.error("Failed to insert qa_inspection in Supabase:", err);
-    return newInsp;
+    console.error("Failed to insert QA inspection via MySQL API:", err);
   }
+
+  return newInsp;
 }
 
 /**
