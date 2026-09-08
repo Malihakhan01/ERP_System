@@ -26,14 +26,14 @@ export const DEMO_USERS: Record<string, AuthUser & { password: string }> = {
   },
   supervisor: {
     id: "USR-002",
-    name: "Tariq Mahmood",
+    name: "maliha",
     email: "supervisor@factoryos.internal",
-    password: "supervisor2026",
+    password: "12345678",
     role: "production_supervisor",
     roleTitle: "Production Floor Supervisor",
     department: "Sewing & Finishing",
     plant: "Unit 1 - Korangi Garment Hub",
-    initials: "TM",
+    initials: "MK",
     avatarColor: "from-amber-600 to-orange-600",
   },
   finance: {

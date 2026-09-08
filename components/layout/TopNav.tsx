@@ -53,17 +53,43 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
   const [showSwitchPassword, setShowSwitchPassword] = React.useState(false);
   const [switchLoading, setSwitchLoading] = React.useState(false);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
+  const [dbUsersList, setDbUsersList] = React.useState<AuthUser[]>([]);
+
+  const loadUsers = React.useCallback(() => {
+    fetch("/api/auth/users")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.users)) {
+          setDbUsersList(data.users);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     setMounted(true);
     setUser(getClientAuthUser());
-    const handleAuthChange = () => setUser(getClientAuthUser());
+    loadUsers();
+
+    const handleAuthChange = () => {
+      setUser(getClientAuthUser());
+      loadUsers();
+    };
     window.addEventListener("factoryos_auth_change", handleAuthChange);
     return () => window.removeEventListener("factoryos_auth_change", handleAuthChange);
-  }, []);
+  }, [loadUsers]);
 
   const handleOpenSwitchModal = (roleKey: string) => {
-    const target = DEMO_USERS[roleKey];
+    // Look up dynamic user from MySQL first, then fallback to demo static config
+    const target =
+      dbUsersList.find((u) => {
+        if (roleKey === "admin") return u.role === "super_admin";
+        if (roleKey === "supervisor") return u.role === "production_supervisor";
+        if (roleKey === "finance") return u.role === "finance";
+        if (roleKey === "warehouse") return u.role === "factory_manager";
+        return false;
+      }) || DEMO_USERS[roleKey];
+
     if (!target) return;
     if (target.email === user.email) {
       info("Already Active", { description: `You are already logged in as ${target.name}.` });
