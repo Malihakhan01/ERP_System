@@ -104,3 +104,95 @@ body {
 .sidebar-transition {
   transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ============================================================
+   COMMERCIAL PRINT & PDF EXPORT STYLES (@media print)
+   ============================================================ */
+
+@media print {
+  /* Hide non-printable navigation, sidebar, actions, and interactive chrome */
+  aside,
+  header,
+  nav,
+  .no-print,
+  .print-hide,
+  button:not(.print-preserve),
+  .toast-container,
+  [role="status"],
+  [aria-live="polite"] {
+    display: none !important;
+  }
+
+  /* Reset layout constraints for paper printing */
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.3 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Print Containers */
+  .a4-print-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 12mm 15mm !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .shipping-label-sheet {
+    display: block !important;
+    width: 4in !important;
+    height: 6in !important;
+    padding: 0.25in !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 2px solid #000000 !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Page Break Optimizations */
+  .page-break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .page-break-after-always {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  /* Ensure borders and table headers print crisp */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border-color: #cbd5e1 !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+}

@@ -34,6 +34,7 @@ import {
   Printer,
   RefreshCw,
 } from "lucide-react";
+import { CommercialInvoicePrintView } from "@/components/invoices/CommercialInvoicePrintView";
 import {
   InvoiceRecord,
   InvoiceStatus,
@@ -107,8 +108,8 @@ const INVOICE_TYPES: InvoiceType[] = [
 export default function InvoicesPage() {
   const { success, error: toastError } = useToast();
 
-  // View Mode: "list" | "create" | "edit" | "detail"
-  const [viewMode, setViewMode] = React.useState<"list" | "create" | "edit" | "detail">("list");
+  // View Mode: "list" | "create" | "edit" | "detail" | "print"
+  const [viewMode, setViewMode] = React.useState<"list" | "create" | "edit" | "detail" | "print">("list");
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState<string | null>(null);
 
   // Detail Sub-Tab: "overview" | "order" | "breakdown" | "payments" | "client" | "shipping" | "timeline"
@@ -953,12 +954,20 @@ export default function InvoicesPage() {
         }
       />
 
-      <div className="flex-1 w-full max-w-[1600px] mx-auto min-w-0 px-4 py-5 sm:px-6 lg:px-8 space-y-6">
         {/* ============================================================
-            VIEW 1: CREATE / EDIT INVOICE STUDIO
+            VIEW 0: A4 COMMERCIAL INVOICE PRINT VIEW
             ============================================================ */}
-        {viewMode === "create" || viewMode === "edit" ? (
-          <div className="space-y-6 min-w-0 w-full animate-in fade-in-0 duration-200">
+        {viewMode === "print" && activeInvoice ? (
+          <CommercialInvoicePrintView
+            invoice={activeInvoice}
+            client={availableClients.find((c) => c.id === activeInvoice.clientId || c.clientId === activeInvoice.clientDisplayId) || null}
+            order={availableOrders.find((o) => o.id === activeInvoice.orderId || o.orderNumber === activeInvoice.orderNumber) || null}
+            onClose={() => setViewMode(selectedInvoiceId ? "detail" : "list")}
+          />
+        ) : (
+          <div className="flex-1 w-full max-w-[1600px] mx-auto min-w-0 px-4 py-5 sm:px-6 lg:px-8 space-y-6">
+            {viewMode === "create" || viewMode === "edit" ? (
+              <div className="space-y-6 min-w-0 w-full animate-in fade-in-0 duration-200">
             {/* Top Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs">
               <div className="flex items-center gap-3 min-w-0">
@@ -1431,11 +1440,9 @@ export default function InvoicesPage() {
                   variant="ghost"
                   size="md"
                   leftIcon={<Printer className="h-4 w-4" />}
-                  onClick={() => {
-                    if (typeof window !== "undefined") window.print();
-                  }}
+                  onClick={() => setViewMode("print")}
                 >
-                  Print
+                  Print A4 Invoice
                 </Button>
                 <Button
                   variant="ghost"
@@ -2225,6 +2232,17 @@ export default function InvoicesPage() {
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedInvoiceId(inv.id);
+                                    setViewMode("print");
+                                  }}
+                                  title="Print A4 Commercial Invoice"
+                                >
+                                  <Printer className="h-3.5 w-3.5 text-blue-600" />
+                                </Button>
                                 {inv.balanceDue > 0 && inv.status !== "cancelled" && (
                                   <Button
                                     variant="ghost"
@@ -2284,6 +2302,7 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+    )}
 
       {/* Record Payment Modal */}
       <Modal

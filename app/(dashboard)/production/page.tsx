@@ -32,6 +32,7 @@ import {
   UserCheck,
   Play,
   RotateCcw,
+  Barcode,
 } from "lucide-react";
 import {
   getProductionJobsFromSupabase,
@@ -51,6 +52,8 @@ import { type OrderRecord, INITIAL_ORDERS } from "@/lib/orders-engine";
 import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
 import type { EmployeeRecord } from "@/lib/employees-engine";
 import { getInventoryFromSupabase, InventoryItem } from "@/lib/services/inventory-service";
+import { useBarcodeScanner, BarcodeScannerBanner } from "@/lib/hooks/useBarcodeScanner";
+import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
 export const STAGE_CONFIG: Record<
   string,
@@ -101,6 +104,31 @@ export default function ProductionPage() {
   const [detailTab, setDetailTab] = React.useState<
     "overview" | "cutting" | "stitching" | "finishing" | "materials" | "earnings"
   >("overview");
+
+  // Global Hardware Barcode Scanner for Bundles & Job tags
+  const { lastScannedBarcode, scanPulse, playAudioBeep } = useBarcodeScanner({
+    onScan: (barcode) => {
+      const matched = jobs.find(
+        (j) =>
+          (j.jobNumber && j.jobNumber.toLowerCase() === barcode.toLowerCase()) ||
+          (j.id && j.id.toLowerCase() === barcode.toLowerCase()) ||
+          (j.styleName && j.styleName.toLowerCase().includes(barcode.toLowerCase()))
+      );
+
+      if (matched) {
+        setSelectedJob(matched);
+        setViewMode("detail");
+        success(`Scanned Bundle Tag: ${matched.jobNumber}`, {
+          description: `Active Stage: ${STAGE_CONFIG[matched.stage]?.label || matched.stage} (${matched.plannedQuantity} Pcs)`,
+        });
+      } else {
+        playAudioBeep("error");
+        toastError("Job / Bundle Not Found", {
+          description: `No production job matched barcode "${barcode}".`,
+        });
+      }
+    },
+  });
 
   // Filtering & Pagination
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -1596,6 +1624,9 @@ export default function ProductionPage() {
           destructive={true}
         />
       </div>
+
+      {/* Hardware Barcode Scanner Status Banner */}
+      <BarcodeScannerBanner activeBarcode={lastScannedBarcode} pulse={scanPulse} />
     </>
   );
 }

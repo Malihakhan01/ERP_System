@@ -27,12 +27,15 @@ import {
   Save,
   Wrench,
   Sparkles,
-  ClipboardList,
   Flame,
   RefreshCw,
+  Tablet,
+  ClipboardList,
 } from "lucide-react";
 import type { QAInspectionRecord, QADefectRecord, QAReworkRecord } from "@/lib/services/qa-service";
 import { getProductionJobsFromSupabase, ProductionJobRecord } from "@/lib/services/production-service";
+import { TabletDefectLogger } from "@/components/qa/TabletDefectLogger";
+import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -84,8 +87,47 @@ export default function QAPage() {
   // DEFECT LOGGING MODAL STATE
   // ---------------------------------------------------------------------------
   const [defectModalOpen, setDefectModalOpen] = React.useState(false);
+  const [tabletLoggerOpen, setTabletLoggerOpen] = React.useState(false);
   const [defectCode, setDefectCode] = React.useState("DEF-ST-01");
   const [defectName, setDefectName] = React.useState("Broken / Skipped Stitching");
+
+  const handleSaveTabletDefect = async (defect: {
+    code: string;
+    name: string;
+    category: "critical" | "major" | "minor";
+    zone: string;
+    count: number;
+    notes?: string;
+  }) => {
+    if (!selectedInspection) {
+      success(`Floor Defect Logged: ${defect.name}`, {
+        description: `${defect.count} pcs (${defect.category.toUpperCase()}) in zone ${defect.zone} recorded.`,
+      });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/qa/${selectedInspection.id}/defects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          defect_code: defect.code,
+          defect_name: `${defect.name} [Zone: ${defect.zone}]`,
+          category: defect.category,
+          defect_count: defect.count,
+          operation_name: `Sewing Line (${defect.zone})`,
+          corrective_action: defect.notes || "Adjust needle tension and check seam alignment",
+        }),
+      });
+      if (res.ok) {
+        success(`Defect Logged: ${defect.name}`, {
+          description: `Logged ${defect.count} defective pieces in zone ${defect.zone}.`,
+        });
+        loadData();
+      }
+    } catch {
+      // fallback
+    }
+  };
   const [defectCategory, setDefectCategory] = React.useState<"critical" | "major" | "minor">("major");
   const [defectCount, setDefectCount] = React.useState(2);
   const [defectOperation, setDefectOperation] = React.useState("Front Pocket Attachment");
@@ -582,14 +624,25 @@ export default function QAPage() {
                 <h3 className="text-sm font-bold text-slate-900">Recorded Defect Audit Trail</h3>
                 <p className="text-xs text-slate-500">Specific defects logged during this AQL sample run</p>
               </div>
-              <Button
-                variant="primary"
-                size="sm"
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={() => setDefectModalOpen(true)}
-              >
-                Add Defect
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold"
+                  leftIcon={<Tablet className="h-4 w-4" />}
+                  onClick={() => setTabletLoggerOpen(true)}
+                >
+                  Tablet Floor Mode
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  onClick={() => setDefectModalOpen(true)}
+                >
+                  Add Defect
+                </Button>
+              </div>
             </div>
 
             {inspectionDefects.length === 0 ? (
@@ -770,9 +823,14 @@ export default function QAPage() {
             <Button variant="secondary" onClick={() => setDecisionModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleMakeDecision}>
+            <RoleActionButton
+              requiredRoles={["super_admin", "production_supervisor"]}
+              fallbackTooltip="Requires Super Admin or Floor Supervisor permission to confirm/override QA decision"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+              onClick={handleMakeDecision}
+            >
               Confirm Verdict & Sync MySQL
-            </Button>
+            </RoleActionButton>
           </ModalFooter>
         </Modal>
       </>
@@ -793,6 +851,15 @@ export default function QAPage() {
           description="Enforce international quality standards with ANSI/ASQ Z1.4 sampling, defect classifications, and automated rework tickets."
           actions={
             <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="md"
+                className="bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold"
+                leftIcon={<Tablet className="h-4 w-4" />}
+                onClick={() => setTabletLoggerOpen(true)}
+              >
+                Tablet Floor Mode
+              </Button>
               <Button
                 variant="secondary"
                 size="md"
@@ -1086,6 +1153,14 @@ export default function QAPage() {
           </Card>
         )}
       </div>
+
+      {/* 10-Inch Tablet Floor Touch Defect Logger */}
+      <TabletDefectLogger
+        isOpen={tabletLoggerOpen}
+        onClose={() => setTabletLoggerOpen(false)}
+        onSaveDefect={handleSaveTabletDefect}
+        lotReference={selectedInspection?.inspectionNumber || "ACTIVE-SEWING-LOT-2026"}
+      />
     </>
   );
 }
