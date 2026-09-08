@@ -64,6 +64,7 @@ import {
 } from "@/lib/services/payroll-service";
 import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
 import { getAdvancesFromSupabase } from "@/lib/services/advances-service";
+import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
 const STATUS_CONFIG = {
   Pending: { label: "Pending Payout", variant: "warning" as const },
@@ -339,13 +340,15 @@ export default function SalariesPage() {
               >
                 Refresh
               </Button>
-              <Button
-                variant="primary"
-                leftIcon={<Plus className="h-4 w-4" />}
+              <RoleActionButton
+                requiredRoles={["super_admin", "finance"]}
+                fallbackTooltip="Requires Finance Lead or Super Admin permission to process payroll runs"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
                 onClick={openProcessModal}
               >
+                <Plus className="h-4 w-4" />
                 Process Monthly Payroll
-              </Button>
+              </RoleActionButton>
             </div>
           }
         />

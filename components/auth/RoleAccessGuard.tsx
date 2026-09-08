@@ -151,8 +151,9 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
             Sign In with Another Account
           </Link>
         </div>
-
       </div>
     </div>
   );
 }
+
+export { RoleActionButton, RoleGate } from "./RoleActionButton";

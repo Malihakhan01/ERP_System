@@ -24,7 +24,11 @@ import {
   Save,
   Sparkles,
   RefreshCw,
+  FileText,
+  Printer,
 } from "lucide-react";
+
+import { TechPackSpecSheetModal } from "@/components/products/TechPackSpecSheetModal";
 
 import {
   getProductsFromSupabase,
@@ -60,6 +64,7 @@ export default function ProductsPage() {
 
   // Mode: "list" | "create"
   const [viewMode, setViewMode] = React.useState<"list" | "create">("list");
+  const [selectedSpecProduct, setSelectedSpecProduct] = React.useState<GarmentProduct | null>(null);
 
   // Hydration-safe localStorage synchronization
   const getSnapshot = React.useCallback(() => {
@@ -887,14 +892,25 @@ export default function ProductsPage() {
                             <Badge variant="primary">Active</Badge>
                           </td>
                           <td className="py-3.5 px-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setProductToDelete(product)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Delete product"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSpecProduct(product)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+                                title="View & Print Tech Pack Spec Sheet"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                <span>Tech Pack</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setProductToDelete(product)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                title="Delete product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -925,6 +941,13 @@ export default function ProductsPage() {
               confirmLabel="Delete Product"
               cancelLabel="Cancel"
               destructive
+            />
+
+            {/* Production Tech Pack Spec Sheet Modal */}
+            <TechPackSpecSheetModal
+              product={selectedSpecProduct}
+              isOpen={Boolean(selectedSpecProduct)}
+              onClose={() => setSelectedSpecProduct(null)}
             />
           </div>
         )}

@@ -27,8 +27,10 @@ import {
   ChevronRight,
   RefreshCw,
   Sparkles,
+  Barcode,
 } from "lucide-react";
 import type { TrackingShipmentRecord, TrackingKPIData } from "@/lib/mysql/tracking-db";
+import { useBarcodeScanner, BarcodeScannerBanner } from "@/lib/hooks/useBarcodeScanner";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -53,6 +55,32 @@ export default function TrackingPage() {
   const [records, setRecords] = React.useState<TrackingShipmentRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedRecord, setSelectedRecord] = React.useState<TrackingShipmentRecord | null>(null);
+
+  // Global Hardware Scanner Listener
+  const { lastScannedBarcode, scanPulse, playAudioBeep } = useBarcodeScanner({
+    onScan: (barcode) => {
+      const matched = records.find(
+        (r) =>
+          (r.trackingNumber && r.trackingNumber.toLowerCase() === barcode.toLowerCase()) ||
+          (r.orderNumber && r.orderNumber.toLowerCase() === barcode.toLowerCase()) ||
+          (r.styleCode && r.styleCode.toLowerCase().includes(barcode.toLowerCase())) ||
+          (r.productName && r.productName.toLowerCase().includes(barcode.toLowerCase()))
+      );
+
+      if (matched) {
+        setSelectedRecord(matched);
+        setSearchQuery(barcode);
+        success(`Scanned Gate Tracker: ${matched.trackingNumber}`, {
+          description: `Active Gate: Stage ${matched.currentGate} (${matched.gateStatus})`,
+        });
+      } else {
+        playAudioBeep("error");
+        toastError("Shipment Not Found", {
+          description: `No active production shipment matched barcode "${barcode}".`,
+        });
+      }
+    },
+  });
 
   // Modals
   const [advanceModalOpen, setAdvanceModalOpen] = React.useState(false);
@@ -427,6 +455,9 @@ export default function TrackingPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Hardware Barcode Scanner Status Banner */}
+      <BarcodeScannerBanner activeBarcode={lastScannedBarcode} pulse={scanPulse} />
     </>
   );
 }

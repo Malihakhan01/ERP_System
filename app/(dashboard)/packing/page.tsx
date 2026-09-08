@@ -29,9 +29,13 @@ import {
   RefreshCw,
   QrCode,
   FileCheck,
+  Printer,
+  Tag,
 } from "lucide-react";
 import type { PackingCartonRecord, PackingQueueItem, PackingKPIData } from "@/lib/services/packing-service";
 import { getProductionJobsFromSupabase, ProductionJobRecord } from "@/lib/services/production-service";
+import { useBarcodeScanner, BarcodeScannerBanner } from "@/lib/hooks/useBarcodeScanner";
+import { MasterCartonShippingLabel } from "@/components/packing/MasterCartonShippingLabel";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -88,6 +92,44 @@ export default function PackingPage() {
   const [scanInput, setScanInput] = React.useState("");
   const [scannedCarton, setScannedCarton] = React.useState<any>(null);
   const [scanError, setScanError] = React.useState("");
+  const [selectedLabelCarton, setSelectedLabelCarton] = React.useState<PackingCartonRecord | null>(null);
+
+  // Global Hardware Barcode Scanner Listener Hook
+  const { lastScannedBarcode, scanPulse, playAudioBeep } = useBarcodeScanner({
+    onScan: (barcode) => {
+      setScanInput(barcode);
+      const matched = cartons.find(
+        (c) =>
+          (c.cartonBarcode && c.cartonBarcode.toLowerCase() === barcode.toLowerCase()) ||
+          (c.cartonNumber && c.cartonNumber.toLowerCase() === barcode.toLowerCase()) ||
+          (c.productionJobId && c.productionJobId.toLowerCase() === barcode.toLowerCase())
+      );
+
+      if (matched) {
+        setScannedCarton({
+          carton_number: matched.cartonNumber,
+          carton_barcode: matched.cartonBarcode || `CTN-${matched.cartonNumber}-2026`,
+          total_units_in_carton: matched.totalUnitsInCarton,
+          gross_weight_kg: matched.grossWeightKg,
+          status: matched.status,
+          items: matched.sizeBreakdown
+            ? Object.entries(matched.sizeBreakdown).map(([size, quantity]) => ({ size, colorway: "Standard", quantity }))
+            : [],
+        });
+        setScanError("");
+        setActiveTab("scanner");
+        success(`Hardware Scan: ${matched.cartonNumber}`, {
+          description: `Matched master carton with ${matched.totalUnitsInCarton} units.`,
+        });
+      } else {
+        playAudioBeep("error");
+        setScanError(`No carton matched barcode "${barcode}".`);
+        toastError("Unrecognized Barcode", {
+          description: `Scanned code "${barcode}" is not registered in active packing queue.`,
+        });
+      }
+    },
+  });
 
   // ---------------------------------------------------------------------------
   // DATA LOADING
@@ -784,6 +826,7 @@ export default function PackingPage() {
                         <th className="px-4 py-3">Dimensions</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Packed By</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -809,6 +852,17 @@ export default function PackingPage() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-xs text-slate-700">{c.packedBy || "Floor Lead"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLabelCarton(c)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                              title="Print 4x6 Master Carton Label"
+                            >
+                              <Printer className="h-3.5 w-3.5 text-blue-600" />
+                              <span>4x6 Label</span>
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -905,6 +959,16 @@ export default function PackingPage() {
           </div>
         )}
       </div>
+
+      {/* 4x6" Commercial Master Carton Shipping Label Modal */}
+      <MasterCartonShippingLabel
+        carton={selectedLabelCarton}
+        isOpen={Boolean(selectedLabelCarton)}
+        onClose={() => setSelectedLabelCarton(null)}
+      />
+
+      {/* Hardware Barcode Scanner Status Banner */}
+      <BarcodeScannerBanner activeBarcode={lastScannedBarcode} pulse={scanPulse} />
     </>
   );
 }
