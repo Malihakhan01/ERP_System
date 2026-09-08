@@ -7,21 +7,11 @@ import {
   Check,
   Eye,
   EyeOff,
-  Building2,
-  Lock,
-  Mail,
   Loader2,
-  Sparkles,
 } from "lucide-react";
-import { DEMO_USERS, AuthUser } from "@/lib/auth/auth-types";
+import { AuthUser } from "@/lib/auth/auth-types";
 import { setClientAuthUser } from "@/lib/auth/auth-client";
 import { useToast } from "@/components/ui/Toast";
-
-const PLANTS = [
-  "Unit 1 — Korangi Garment Hub",
-  "Unit 2 — Landhi Export Processing Zone",
-  "Commercial Headquarters — Clifton",
-];
 
 type RoleKey = "admin" | "supervisor" | "finance" | "warehouse";
 
@@ -63,13 +53,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { success, error: toastError, info } = useToast();
 
-  // Role Selection
+  // Role Selection (default context)
   const [selectedRole, setSelectedRole] = React.useState<RoleKey>("admin");
 
-  // Form Inputs
-  const [plant, setPlant] = React.useState(PLANTS[0]);
-  const [email, setEmail] = React.useState(DEMO_USERS.admin.email);
-  const [password, setPassword] = React.useState(DEMO_USERS.admin.password);
+  // Form Inputs (Empty by default for real deployment & manual entry)
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [rememberMe, setRememberMe] = React.useState(true);
 
@@ -77,20 +66,24 @@ export default function LoginPage() {
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
-  // When clicking a role, fill the matching credentials and set active role
+  // When clicking a role card, select role without overwriting typed inputs
   const handleSelectRole = (roleKey: RoleKey) => {
     setSelectedRole(roleKey);
     setErrorMessage(null);
-    const demo = DEMO_USERS[roleKey];
-    if (demo) {
-      setEmail(demo.email);
-      setPassword(demo.password);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setErrorMessage("Please enter both your Email/Operator ID and Password.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -98,9 +91,9 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
-          password,
-          plant,
+          email: cleanEmail,
+          password: cleanPassword,
+          roleContext: selectedRole,
         }),
       });
 
@@ -114,10 +107,8 @@ export default function LoginPage() {
           description: `Authenticated as ${loggedInUser.roleTitle}`,
         });
 
-        // Determine target dashboard based on validated user role or role card
-        const matchedRole = ROLES.find((r) => r.key === selectedRole);
-        let destination = matchedRole?.targetRoute || "/dashboard";
-
+        // Determine target dashboard based on validated user role
+        let destination = "/dashboard";
         if (loggedInUser.role === "production_supervisor") {
           destination = "/production";
         } else if (loggedInUser.role === "finance") {
@@ -126,20 +117,24 @@ export default function LoginPage() {
           destination = "/inventory";
         } else if (loggedInUser.role === "super_admin") {
           destination = "/dashboard";
+        } else {
+          const matched = ROLES.find((r) => r.key === selectedRole);
+          destination = matched?.targetRoute || "/dashboard";
         }
 
         setTimeout(() => {
           router.push(destination);
           router.refresh();
-        }, 400);
+        }, 300);
       } else {
-        setErrorMessage(data.message || "Invalid credentials. Please verify your email and password.");
+        const msg = data.message || "Invalid credentials. Please verify your email and password.";
+        setErrorMessage(msg);
         toastError("Authentication Failed", {
-          description: data.message || "Please check your login details.",
+          description: msg,
         });
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Unable to reach authentication service.");
+      setErrorMessage(err.message || "Unable to connect to authentication service.");
     } finally {
       setLoading(false);
     }
@@ -147,7 +142,7 @@ export default function LoginPage() {
 
   const handleForgotPassword = () => {
     info("Password Recovery", {
-      description: "Please contact IT Administrator at admin@factoryos.internal to reset your operator PIN.",
+      description: "Please contact your System Administrator to reset your operator credentials.",
     });
   };
 
@@ -215,10 +210,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Subtle System Status */}
+          {/* System Status */}
           <div className="pt-4 flex items-center gap-2 text-xs text-slate-500">
             <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
-            <span>Plant Network Online — Karachi Industrial Hub</span>
+            <span>Plant Network Online — Production Ready</span>
           </div>
 
         </div>
@@ -290,26 +285,6 @@ export default function LoginPage() {
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Manufacturing Plant */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Manufacturing Plant
-                </label>
-                <div className="relative">
-                  <select
-                    value={plant}
-                    onChange={(e) => setPlant(e.target.value)}
-                    className="w-full bg-[#090d16] border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                  >
-                    {PLANTS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
               {/* Email / Operator ID */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -319,9 +294,10 @@ export default function LoginPage() {
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@factoryos.internal"
+                    placeholder="Enter your email or operator ID"
                     className="w-full bg-[#090d16] border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                   />
                 </div>
@@ -336,6 +312,7 @@ export default function LoginPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter security password"
