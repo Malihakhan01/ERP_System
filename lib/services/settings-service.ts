@@ -1,9 +1,29 @@
-// lib/services/settings-service.ts
-// Supabase Database Service Layer for FactoryOS System Settings
-// Primary source of truth: PostgreSQL `system_settings` table with offline cache fallback.
 
-import { createClient } from "./client";
-import { isSupabaseConfigured } from "./employees-service";
+// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
+const isSupabaseConfigured = (): boolean => false;
+const createClient = (): any => ({
+  from: () => ({
+    select: () => ({
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), order: async () => ({ data: [], error: null }) }),
+      neq: () => ({ order: async () => ({ data: [], error: null }) }),
+      order: async () => ({ data: [], error: null }),
+    }),
+    insert: async () => ({ data: null, error: null }),
+    upsert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
+    update: () => ({ eq: async () => ({ data: null, error: null }) }),
+    delete: () => ({ eq: async () => ({ data: null, error: null }) }),
+  }),
+  storage: {
+    from: () => ({
+      upload: async () => ({ data: null, error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: "" } }),
+    }),
+  },
+});
+// lib/services/settings-service.ts
+// MySQL Database Service Layer for FactoryOS System Settings
+// Primary source of truth: MySQL 8 `system_settings` table with offline cache fallback.
+
 
 export interface CompanySettings {
   companyName: string;

@@ -1,9 +1,29 @@
 // lib/services/tracking-service.ts
 // FactoryOS PostgreSQL Supabase Repository for Logistics & Production Tracking Module
 
-import { createClient } from "./client";
-import { isSupabaseConfigured } from "./employees-service";
 import { ProductionTimelineRecord, addProductionTimelineEvent } from "./production-service";
+
+// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
+const isSupabaseConfigured = (): boolean => false;
+const createClient = (): any => ({
+  from: () => ({
+    select: () => ({
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), order: async () => ({ data: [], error: null }) }),
+      neq: () => ({ order: async () => ({ data: [], error: null }) }),
+      order: async () => ({ data: [], error: null }),
+    }),
+    insert: async () => ({ data: null, error: null }),
+    upsert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
+    update: () => ({ eq: async () => ({ data: null, error: null }) }),
+    delete: () => ({ eq: async () => ({ data: null, error: null }) }),
+  }),
+  storage: {
+    from: () => ({
+      upload: async () => ({ data: null, error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: "" } }),
+    }),
+  },
+});
 
 export type MilestoneGate = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
@@ -529,7 +549,7 @@ export async function getTrackingTimelineFromSupabase(productionJobId: string): 
       return [];
     }
 
-    return (data || []).map((row) => ({
+    return (data || []).map((row: any) => ({
       id: row.id,
       productionJobId: row.production_job_id,
       eventType: row.event_type,

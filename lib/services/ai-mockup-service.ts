@@ -1,8 +1,7 @@
 // lib/services/ai-mockup-service.ts
-// Supabase Database Service Layer for FactoryOS AI Mockup Generator
+// MySQL Database Service Layer for FactoryOS AI Mockup Generator
 // Provides PostgreSQL persistence for ai_generations and ai_settings with LocalStorage fallback.
 
-import { createClient } from "./client";
 import type {
   AiGenerationRecord,
   AiSettings,
@@ -13,13 +12,28 @@ import {
   DEFAULT_AI_SETTINGS,
 } from "../ai-mockup-engine";
 
-export function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return false;
-  if (url.includes("placeholder") || key.includes("placeholder")) return false;
-  return true;
-}
+// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
+const isSupabaseConfigured = (): boolean => false;
+const createClient = (): any => ({
+  from: () => ({
+    select: () => ({
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), order: async () => ({ data: [], error: null }) }),
+      neq: () => ({ order: async () => ({ data: [], error: null }) }),
+      order: async () => ({ data: [], error: null }),
+    }),
+    insert: async () => ({ data: null, error: null }),
+    upsert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
+    update: () => ({ eq: async () => ({ data: null, error: null }) }),
+    delete: () => ({ eq: async () => ({ data: null, error: null }) }),
+  }),
+  storage: {
+    from: () => ({
+      upload: async () => ({ data: null, error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: "" } }),
+    }),
+  },
+});
+
 
 /**
  * LocalStorage Helpers

@@ -4,6 +4,28 @@
 import type { ClientRecord } from "../clients-engine";
 import { CLIENT_STORAGE_KEY, INITIAL_CLIENTS } from "../clients-engine";
 
+// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
+const isSupabaseConfigured = (): boolean => false;
+const createClient = (): any => ({
+  from: () => ({
+    select: () => ({
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }), single: async () => ({ data: null, error: null }), order: async () => ({ data: [], error: null }) }),
+      neq: () => ({ order: async () => ({ data: [], error: null }) }),
+      order: async () => ({ data: [], error: null }),
+    }),
+    insert: async () => ({ data: null, error: null }),
+    upsert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
+    update: () => ({ eq: async () => ({ data: null, error: null }) }),
+    delete: () => ({ eq: async () => ({ data: null, error: null }) }),
+  }),
+  storage: {
+    from: () => ({
+      upload: async () => ({ data: null, error: null }),
+      getPublicUrl: () => ({ data: { publicUrl: "" } }),
+    }),
+  },
+});
+
 export async function getClientsFromSupabase(): Promise<ClientRecord[]> {
   try {
     const res = await fetch("/api/clients");
