@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Root page redirects to dashboard
+// Root entry point redirects directly to the Login Gateway
 export default function RootPage() {
-  redirect("/dashboard");
+  redirect("/login");
 }

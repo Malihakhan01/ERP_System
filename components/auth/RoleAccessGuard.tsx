@@ -13,23 +13,38 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { success } = useToast();
-  const [user, setUser] = React.useState<AuthUser>(DEMO_USERS.admin);
+  const [user, setUser] = React.useState<AuthUser | null>(null);
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
-    setUser(getClientAuthUser());
+    const active = getClientAuthUser();
+    if (!active) {
+      router.replace("/login");
+      return;
+    }
+    setUser(active);
     setMounted(true);
 
     const handleAuthChange = () => {
-      setUser(getClientAuthUser());
+      const updated = getClientAuthUser();
+      if (!updated) {
+        router.replace("/login");
+        return;
+      }
+      setUser(updated);
     };
 
     window.addEventListener("factoryos_auth_change", handleAuthChange);
     return () => window.removeEventListener("factoryos_auth_change", handleAuthChange);
-  }, []);
+  }, [router]);
 
-  if (!mounted) {
-    return <>{children}</>;
+  if (!mounted || !user) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+        <p className="text-xs text-slate-500 font-medium">Verifying Secure Access Session...</p>
+      </div>
+    );
   }
 
   const roleKey = user.role || "super_admin";
