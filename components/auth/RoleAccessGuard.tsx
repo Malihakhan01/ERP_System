@@ -4,7 +4,7 @@ import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ShieldAlert, ArrowLeft, Lock, UserCheck, RefreshCw } from "lucide-react";
-import { getClientAuthUser, setClientAuthUser } from "@/lib/auth/auth-client";
+import { getClientAuthUser, isAuthenticated, setClientAuthUser } from "@/lib/auth/auth-client";
 import { AuthUser, DEMO_USERS } from "@/lib/auth/auth-types";
 import { hasRouteAccess, ROLE_CONFIGS } from "@/lib/auth/rbac";
 import { useToast } from "@/components/ui/Toast";
@@ -13,32 +13,30 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { success } = useToast();
-  const [user, setUser] = React.useState<AuthUser | null>(null);
+  const [user, setUser] = React.useState<AuthUser>(DEMO_USERS.admin);
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
-    const active = getClientAuthUser();
-    if (!active) {
+    if (!isAuthenticated()) {
       router.replace("/login");
       return;
     }
-    setUser(active);
+    setUser(getClientAuthUser());
     setMounted(true);
 
     const handleAuthChange = () => {
-      const updated = getClientAuthUser();
-      if (!updated) {
+      if (!isAuthenticated()) {
         router.replace("/login");
         return;
       }
-      setUser(updated);
+      setUser(getClientAuthUser());
     };
 
     window.addEventListener("factoryos_auth_change", handleAuthChange);
     return () => window.removeEventListener("factoryos_auth_change", handleAuthChange);
   }, [router]);
 
-  if (!mounted || !user) {
+  if (!mounted) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] gap-3">
         <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />

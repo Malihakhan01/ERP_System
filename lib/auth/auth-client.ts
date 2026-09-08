@@ -4,9 +4,9 @@ import { AuthUser, DEMO_USERS } from "./auth-types";
 
 const SESSION_STORAGE_KEY = "factoryos_auth_user";
 
-export function getClientAuthUser(): AuthUser | null {
+export function getClientAuthUser(): AuthUser {
   if (typeof window === "undefined") {
-    return null;
+    return DEMO_USERS.admin;
   }
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -16,7 +16,7 @@ export function getClientAuthUser(): AuthUser | null {
   } catch {
     // ignore
   }
-  return null;
+  return DEMO_USERS.admin;
 }
 
 export function isAuthenticated(): boolean {
