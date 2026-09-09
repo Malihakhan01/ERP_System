@@ -242,6 +242,7 @@ export async function getAdminAllConversations(): Promise<ChatConversationRecord
         createdBy: conv.created_by ? String(conv.created_by) : undefined,
         createdAt: conv.created_at,
         updatedAt: conv.updated_at,
+        otherParticipant: participants.length > 0 ? participants[0] : undefined,
         participants,
         lastMessage,
         unreadCount: 0,

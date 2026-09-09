@@ -72,12 +72,16 @@ interface AdvanceRecord {
 }
 
 export const getAdvanceAmount = (adv: AdvanceRecord) => {
-  return Number(adv.approvedAmount ?? adv.requestedAmount ?? adv.amount ?? 0);
+  const normStatus = (adv.status || "").toLowerCase();
+  if (normStatus === "pending") {
+    return Number(adv.requestedAmount || adv.amount || 0);
+  }
+  return Number(adv.approvedAmount || adv.requestedAmount || adv.amount || 0);
 };
 
 export const isApprovedOrActive = (status?: string) => {
   const s = (status || "").toLowerCase();
-  return s === "approved" || s === "active" || s === "disbursed";
+  return s === "approved" || s === "active" || s === "disbursed" || s === "recovering";
 };
 
 export const getMonthlyDeduction = (adv: AdvanceRecord) => {
@@ -123,20 +127,44 @@ export default function EmployeePortalPage() {
   // Machine SOS State
   const [sosSent, setSosSent] = React.useState(false);
 
-  // 1. Load Current Authenticated Session
+  // 1. Load Current Authenticated Session & Sync with Live Events
   React.useEffect(() => {
     const user = getClientAuthUser();
     setCurrentUser(user);
+    if (user) {
+      const empId = user.employeeId || user.employeeNumber || (user.role === "operator" ? user.id : 1);
+      loadEmployeeData(empId, user);
+    }
+
+    const handleAuthChange = () => {
+      const u = getClientAuthUser();
+      setCurrentUser(u);
+      if (u) {
+        const empId = u.employeeId || u.employeeNumber || (u.role === "operator" ? u.id : 1);
+        loadEmployeeData(empId, u);
+      }
+    };
+
+    window.addEventListener("factoryos_auth_change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("factoryos_auth_change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
   }, []);
 
   // 2. Fetch Tasks, Profile & Advances for this employee
-  const loadEmployeeData = React.useCallback(async (empId?: string | number) => {
+  const loadEmployeeData = React.useCallback(async (empId?: string | number, userOverride?: AuthUser | null) => {
+    const activeUser = userOverride !== undefined ? userOverride : currentUser;
+    const targetEmpId = empId || activeUser?.employeeId || activeUser?.employeeNumber || (activeUser?.role === "operator" ? activeUser.id : 1);
+
     setLoadingTasks(true);
     try {
       // Fetch live employee profile
-      if (empId) {
+      if (targetEmpId) {
         try {
-          const empRes = await fetch(`/api/employees/${empId}`);
+          const empRes = await fetch(`/api/employees/${targetEmpId}`);
           const empData = await empRes.json();
           if (empData.success && empData.data) {
             setEmployeeProfile(empData.data);
@@ -147,7 +175,7 @@ export default function EmployeePortalPage() {
       }
 
       // Fetch tasks
-      const taskQuery = empId ? `?employeeId=${empId}` : "";
+      const taskQuery = targetEmpId ? `?employeeId=${targetEmpId}` : "";
       const tasksRes = await fetch(`/api/tasks${taskQuery}`);
       const tasksData = await tasksRes.json();
       if (tasksData.success && Array.isArray(tasksData.data)) {
@@ -158,8 +186,14 @@ export default function EmployeePortalPage() {
       const advRes = await fetch("/api/advances");
       const advData = await advRes.json();
       if (advData.success && Array.isArray(advData.data)) {
-        if (empId) {
-          setAdvances(advData.data.filter((a: any) => String(a.employeeId) === String(empId)));
+        if (targetEmpId) {
+          setAdvances(
+            advData.data.filter((a: any) =>
+              String(a.employeeId) === String(targetEmpId) ||
+              (activeUser?.employeeNumber && a.employeeNumber === activeUser.employeeNumber) ||
+              (activeUser?.employeeId && String(a.employeeId) === String(activeUser.employeeId))
+            )
+          );
         } else {
           setAdvances(advData.data);
         }
@@ -169,11 +203,13 @@ export default function EmployeePortalPage() {
     } finally {
       setLoadingTasks(false);
     }
-  }, []);
+  }, [currentUser]);
 
   React.useEffect(() => {
-    const empId = currentUser?.employeeId || (currentUser?.role === "operator" ? currentUser.id : 1);
-    loadEmployeeData(empId);
+    if (currentUser) {
+      const empId = currentUser.employeeId || currentUser.employeeNumber || (currentUser.role === "operator" ? currentUser.id : 1);
+      loadEmployeeData(empId, currentUser);
+    }
   }, [currentUser, loadEmployeeData]);
 
   // Handle task status progression (Start task -> in_progress)
@@ -261,9 +297,11 @@ export default function EmployeePortalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId: empId,
+          requestedAmount: amountNum,
           amount: amountNum,
           reason: advanceReason.trim(),
           repaymentMonths: Number(advanceMonths) || 2,
+          status: "Pending",
         }),
       });
 
@@ -273,7 +311,7 @@ export default function EmployeePortalPage() {
           description: `Your request for Rs ${amountNum.toLocaleString()} has been sent to Finance for approval.`,
         });
         setIsAdvanceModalOpen(false);
-        loadEmployeeData(empId);
+        loadEmployeeData(empId, currentUser);
       } else {
         toastError("Submission Failed", { description: data.message });
       }
@@ -285,12 +323,37 @@ export default function EmployeePortalPage() {
   };
 
   // Trigger Machine Maintenance SOS
-  const handleTriggerSOS = () => {
+  const handleTriggerSOS = async () => {
     setSosSent(true);
-    success("Maintenance Alert Dispatched", {
-      description: `Floor Mechanics notified for ${currentUser?.assignedLine || "Line 1"}. Emergency assistance incoming.`,
-    });
-    setTimeout(() => setSosSent(false), 8000);
+
+    try {
+      // Broadcast real-time emergency alert directly to MySQL database and #production-floor channel
+      const res = await fetch("/api/sos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workerName,
+          workerNumber,
+          workerLine,
+          senderId: currentUser?.id,
+          notes: "Need urgent mechanic on floor.",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        success("🚨 Machine Breakdown SOS Dispatched!", {
+          description: `Emergency alert broadcasted to Floor Mechanics & Supervisors for ${workerLine}. Help is on the way.`,
+        });
+        window.dispatchEvent(new Event("factoryos_auth_change"));
+      } else {
+        toastError("SOS Failed", { description: data.message || "Could not dispatch alert." });
+      }
+    } catch (e: any) {
+      toastError("SOS Error", { description: e.message || "Network error dispatching SOS." });
+    }
+
+    setTimeout(() => setSosSent(false), 15000);
   };
 
   // Derived Task Metrics
@@ -303,13 +366,13 @@ export default function EmployeePortalPage() {
     return true;
   });
 
-  const workerName = employeeProfile?.personalInfo?.fullName || currentUser?.name || "Muhammad Rizwan";
-  const workerNumber = employeeProfile?.employeeNumber || currentUser?.employeeNumber || "EMP-2026-001";
-  const workerRoleTitle = employeeProfile?.employmentInfo?.designation || currentUser?.roleTitle || "Senior Flatlock Operator";
-  const rawAssignedLine = employeeProfile?.factoryInfo?.assignedLine;
+  const workerName = employeeProfile?.personalInfo?.fullName || currentUser?.name || "Muhammad Usman Khan";
+  const workerNumber = employeeProfile?.employeeNumber || currentUser?.employeeNumber || "EMP-2026-005";
+  const workerRoleTitle = employeeProfile?.employmentInfo?.designation || currentUser?.roleTitle || currentUser?.designation || "Senior Overlock Machine Operator";
+  const rawAssignedLine = employeeProfile?.factoryInfo?.assignedLine || currentUser?.assignedLine;
   const workerLine = rawAssignedLine
     ? rawAssignedLine.replace("_", " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) + " — Export Hoodies (Sialkot Unit)"
-    : currentUser?.assignedLine || "Line 1 — Export Hoodies (Sialkot Unit)";
+    : "Line 2 — Export Hoodies (Sialkot Unit)";
   const workerPlant = currentUser?.plant || "Unit 1 - Small Industrial Estate, Sialkot";
   const workerShift = employeeProfile?.factoryInfo?.shift || "Morning";
   const workerInitials =
@@ -319,7 +382,7 @@ export default function EmployeePortalPage() {
       .filter(Boolean)
       .slice(0, 2)
       .join("")
-      .toUpperCase() || currentUser?.initials || "MR";
+      .toUpperCase() || currentUser?.initials || "MU";
 
   // Active Advances & Live Deductions
   const activeAdvances = advances.filter((a) => isApprovedOrActive(a.status));
@@ -903,8 +966,11 @@ export default function EmployeePortalPage() {
                       <p className="text-xs text-slate-600">{adv.reason}</p>
                       <p className="text-[11px] text-slate-400">
                         Requested: {new Date(adv.createdAt || Date.now()).toLocaleDateString()} • Repayment in {adv.repaymentMonths || 2} month(s)
-                        {adv.remainingBalance !== undefined && (
-                          <span className="ml-2 font-medium text-slate-600">• Balance Due: Rs {Number(adv.remainingBalance).toLocaleString()}</span>
+                        {isApproved && (
+                          <span className="ml-2 font-medium text-slate-700">• Balance Due: Rs {Number(adv.remainingBalance ?? amt).toLocaleString()}</span>
+                        )}
+                        {isPending && (
+                          <span className="ml-2 font-medium text-amber-600">• Awaiting Review</span>
                         )}
                       </p>
                     </div>

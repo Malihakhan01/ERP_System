@@ -320,7 +320,36 @@ export default function AdvancesPage() {
     });
   };
 
-  // Admin: Reject Advance
+  // Quick Row Actions
+  const handleRowApprove = (adv: AdvanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedAdvanceId(adv.id);
+    setApprovedAmountInput(adv.requestedAmount);
+    setApprovalNotes("");
+    setIsApproveModalOpen(true);
+  };
+
+  const handleRowReject = (adv: AdvanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedAdvanceId(adv.id);
+    setRejectReason("");
+    setIsRejectModalOpen(true);
+  };
+
+  const handleRowDisburse = (adv: AdvanceRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = disburseAdvance(adv, "Finance & Accounts Desk");
+    const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
+    saveAdvancesList(updatedList);
+    updateAdvanceInDB(updated).catch((err) => console.error(err));
+    toast({
+      type: "success",
+      message: "Funds Disbursed",
+      description: `${updated.advanceNumber} disbursed. Recovery schedule activated across ${updated.repaymentMonths} months.`,
+    });
+  };
+
+  // Admin: Reject Advance Modal Confirm
   const handleRejectConfirm = () => {
     if (!selectedAdvance) return;
     const updated = rejectAdvance(selectedAdvance, rejectReason || "Policy limits exceeded", "HR Committee");
@@ -1092,6 +1121,36 @@ export default function AdvancesPage() {
                       </td>
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
+                          {adv.status === "Pending" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-emerald-700 hover:bg-emerald-50 border-emerald-300 h-7 px-2 text-xs font-semibold"
+                                onClick={(e) => handleRowApprove(adv, e)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-rose-600 hover:bg-rose-50 h-7 px-2 text-xs"
+                                onClick={(e) => handleRowReject(adv, e)}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {adv.status === "Approved" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-700 hover:bg-blue-50 border-blue-300 h-7 px-2 text-xs font-semibold"
+                              onClick={(e) => handleRowDisburse(adv, e)}
+                            >
+                              Disburse
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

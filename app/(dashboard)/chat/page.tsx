@@ -56,6 +56,8 @@ export default function ChatPage() {
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [newMessageText, setNewMessageText] = React.useState("");
   const [sendingMessage, setSendingMessage] = React.useState(false);
+  const [refreshingMessages, setRefreshingMessages] = React.useState(false);
+  const [refreshingConvs, setRefreshingConvs] = React.useState(false);
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -91,14 +93,11 @@ export default function ChatPage() {
 
   const isAdmin = React.useMemo(() => {
     if (!currentUser) return false;
-    return (
-      currentUser.role === "super_admin" ||
-      currentUser.role === "factory_manager"
-    );
+    return currentUser.role === "super_admin";
   }, [currentUser]);
 
   // Load conversations based on mode
-  const loadConversations = React.useCallback(async (keepSelected = true) => {
+  const loadConversations = React.useCallback(async (targetConvIdOrKeep?: string | boolean) => {
     try {
       const data = await fetchConversations({
         mode: chatMode === "admin_all" && isAdmin ? "admin_all" : undefined,
@@ -106,12 +105,16 @@ export default function ChatPage() {
       });
       setConversations(data);
 
-      if (!keepSelected || !selectedConvId) {
+      if (typeof targetConvIdOrKeep === "string") {
+        setSelectedConvId(targetConvIdOrKeep);
+      } else if (targetConvIdOrKeep === false) {
         if (data.length > 0) {
           setSelectedConvId(data[0].id);
         } else {
           setSelectedConvId(null);
         }
+      } else if (!selectedConvId && data.length > 0) {
+        setSelectedConvId(data[0].id);
       }
     } catch (err) {
       console.error("Failed to load conversations:", err);
@@ -259,8 +262,8 @@ export default function ChatPage() {
       if (convId) {
         setIsNewChatModalOpen(false);
         setChatMode("my_chats");
-        await loadConversations(false);
         setSelectedConvId(convId);
+        await loadConversations(convId);
         toast({
           type: "success",
           message: "Direct Chat Opened",
@@ -298,8 +301,8 @@ export default function ChatPage() {
     try {
       const convId = await startDirectChat(adminUser2, adminUser1);
       if (convId) {
-        await loadConversations(false);
         setSelectedConvId(convId);
+        await loadConversations(convId);
         toast({
           type: "success",
           message: "Conversation Located",
@@ -469,12 +472,25 @@ export default function ChatPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => loadConversations(true)}
-                  className="text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                  disabled={refreshingConvs}
+                  onClick={async () => {
+                    setRefreshingConvs(true);
+                    await loadConversations(true);
+                    setRefreshingConvs(false);
+                  }}
+                  className={`flex items-center gap-1 transition-all duration-200 ${
+                    refreshingConvs
+                      ? "text-blue-400 cursor-not-allowed"
+                      : "text-blue-600 hover:text-blue-800 cursor-pointer hover:scale-105"
+                  }`}
                   title="Refresh Conversations"
                 >
-                  <RefreshCw className={`h-3 w-3 ${loadingConversations ? "animate-spin" : ""}`} />
-                  Refresh
+                  <RefreshCw className={`h-3 w-3 transition-transform ${
+                    refreshingConvs ? "animate-spin" : ""
+                  }`} />
+                  <span className="text-[11px] font-medium">
+                    {refreshingConvs ? "Refreshing..." : "Refresh"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -632,11 +648,22 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => loadMessages(activeConversation.id)}
-                      className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-white transition-colors"
+                      disabled={refreshingMessages}
+                      onClick={async () => {
+                        setRefreshingMessages(true);
+                        await loadMessages(activeConversation.id);
+                        setTimeout(() => setRefreshingMessages(false), 600);
+                      }}
+                      className={`p-1.5 rounded-md transition-all duration-200 group ${
+                        refreshingMessages
+                          ? "text-blue-500 bg-blue-50 cursor-not-allowed"
+                          : "text-slate-400 hover:text-blue-600 hover:bg-white cursor-pointer"
+                      }`}
                       title="Reload Messages"
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className={`h-4 w-4 transition-transform duration-300 ${
+                        refreshingMessages ? "animate-spin" : "group-hover:rotate-180"
+                      }`} />
                     </button>
                   </div>
                 </div>

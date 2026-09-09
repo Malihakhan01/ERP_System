@@ -64,15 +64,13 @@ export async function GET(req: NextRequest) {
     if (mode === "admin_all") {
       const isAdmin =
         userRole === "super_admin" ||
-        userRole === "admin" ||
-        userRole === "factory_manager" ||
         sessionUser?.role === "super_admin";
 
       if (!isAdmin) {
         return NextResponse.json(
           {
             success: false,
-            message: "Access denied. Only system administrators can access global surveillance mode.",
+            message: "Access denied. Only Super Administrator can access global surveillance mode.",
           },
           { status: 403 }
         );
@@ -106,8 +104,7 @@ export async function POST(req: NextRequest) {
     const sessionUser = getSessionUser(req);
     const body = await req.json();
     const { targetUserId, senderId } = body;
-
-    let currentUserId = sessionUser?.id || senderId;
+    let currentUserId = senderId || sessionUser?.id;
     if (!currentUserId) {
       const dbUsers = await executeQuery<any>("SELECT id FROM users LIMIT 1");
       if (dbUsers.length > 0) currentUserId = dbUsers[0].id;

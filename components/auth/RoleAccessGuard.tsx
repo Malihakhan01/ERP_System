@@ -54,16 +54,6 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
 
   const currentRoleConfig = ROLE_CONFIGS[roleKey] || ROLE_CONFIGS.super_admin;
 
-  const handleFastSwitch = (demoKey: string) => {
-    const demoUser = DEMO_USERS[demoKey];
-    if (!demoUser) return;
-    setClientAuthUser(demoUser);
-    success(`Switched role to ${demoUser.roleTitle}`, {
-      description: `Access updated for ${demoUser.name}`,
-    });
-    router.refresh();
-  };
-
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center min-h-[500px]">
       <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
@@ -102,40 +92,8 @@ export function RoleAccessGuard({ children }: { children: React.ReactNode }) {
           </p>
         </div>
 
-        {/* Switch Operator Account (Security Protected) */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Authenticate with Authorized Profile
-            </p>
-            <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
-              <Lock className="h-2.5 w-2.5" /> Password Required
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { key: "admin", label: "Super Admin", role: "Full Access", email: "admin@factoryos.internal" },
-              { key: "supervisor", label: "Supervisor", role: "Floor Lines", email: "supervisor@factoryos.internal" },
-              { key: "finance", label: "Finance Lead", role: "Accounts & Pay", email: "finance@factoryos.internal" },
-              { key: "warehouse", label: "Warehouse", role: "Bays & Stock", email: "warehouse@factoryos.internal" },
-            ].map((d) => (
-              <Link
-                key={d.key}
-                href="/login"
-                className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-left text-xs transition-colors cursor-pointer block hover:border-blue-300"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-slate-800">{d.label}</p>
-                  <Lock className="h-3 w-3 text-slate-400" />
-                </div>
-                <p className="text-[10px] text-slate-400">{d.role}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-
         {/* Actions */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/dashboard"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"

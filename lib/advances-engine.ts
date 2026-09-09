@@ -461,18 +461,21 @@ export function computeAdvanceMetrics(advances: AdvanceRecord[]): AdvanceKpiMetr
   const currentMonthStr = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }); // e.g. "Aug 2026"
 
   for (const adv of nonArchived) {
-    if (adv.status === "Pending") pending++;
-    if (adv.status === "Recovering" || adv.status === "Disbursed") {
+    const st = String(adv.status || "Pending").toLowerCase().trim();
+    if (st === "pending") {
+      pending++;
+    } else if (st === "recovering" || st === "disbursed" || st === "active" || st === "approved") {
       activeLoans++;
-      totalExposure += adv.remainingBalance;
+      totalExposure += Number(adv.remainingBalance || adv.approvedAmount || adv.requestedAmount || 0);
+    } else if (st === "completed" || st === "fully_deducted") {
+      completed++;
     }
-    if (adv.status === "Completed") completed++;
 
     // Calculate recoveries this month
     if (adv.repayments) {
       for (const rep of adv.repayments) {
-        if (rep.status === "Paid" && rep.deductionMonth.toLowerCase() === currentMonthStr.toLowerCase()) {
-          recoveredThisMonth += rep.amount;
+        if (rep.status === "Paid" && rep.deductionMonth && rep.deductionMonth.toLowerCase() === currentMonthStr.toLowerCase()) {
+          recoveredThisMonth += Number(rep.amount || 0);
         }
       }
     }
