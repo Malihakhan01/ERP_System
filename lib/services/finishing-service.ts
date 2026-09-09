@@ -1,14 +1,14 @@
 // lib/services/finishing-service.ts
-// FactoryOS PostgreSQL Supabase Repository for Garment Finishing, Washing & Steam Pressing Module
+// FactoryOS PostgreSQL Database Repository for Garment Finishing, Washing & Steam Pressing Module
 
 import {
-  getProductionJobByIdFromSupabase,
-  updateProductionJobInSupabase,
+  getProductionJobByIdFromDB,
+  updateProductionJobInDB,
   addProductionTimelineEvent,
 } from "./production-service";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -246,22 +246,22 @@ function mapInspToRow(insp: Partial<FinishingInspectionRecord>): any {
 // -----------------------------------------------------------------------------
 
 /**
- * Fetch all Finishing Operations from Supabase PostgreSQL
+ * Fetch all Finishing Operations from Database PostgreSQL
  */
-export async function getFinishingOperationsFromSupabase(): Promise<FinishingOperationRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getFinishingOperationsFromDB(): Promise<FinishingOperationRecord[]> {
+  if (!isDatabaseConfigured()) {
     return getLocalFinishingOperations();
   }
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const database = createClient();
+    const { data, error } = await database
       .from("finishing_operations")
       .select("*")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.warn("Supabase fetch error for finishing_operations, using fallback:", error.message);
+      console.warn("Database fetch error for finishing_operations, using fallback:", error.message);
       return getLocalFinishingOperations();
     }
 
@@ -269,7 +269,7 @@ export async function getFinishingOperationsFromSupabase(): Promise<FinishingOpe
     setLocalFinishingOperations(domain);
     return domain;
   } catch (err) {
-    console.error("Failed to query finishing_operations from Supabase:", err);
+    console.error("Failed to query finishing_operations from Database:", err);
     return getLocalFinishingOperations();
   }
 }
@@ -277,15 +277,15 @@ export async function getFinishingOperationsFromSupabase(): Promise<FinishingOpe
 /**
  * Fetch single Finishing Operation by ID
  */
-export async function getFinishingOperationByIdFromSupabase(id: string): Promise<FinishingOperationRecord | null> {
-  const all = await getFinishingOperationsFromSupabase();
+export async function getFinishingOperationByIdFromDB(id: string): Promise<FinishingOperationRecord | null> {
+  const all = await getFinishingOperationsFromDB();
   return all.find((o) => o.id === id) || null;
 }
 
 /**
  * Create a new Finishing Operation (Receives stitched quantity into Finishing)
  */
-export async function createFinishingOperationInSupabase(payload: {
+export async function createFinishingOperationInDB(payload: {
   productionJobId: string;
   bundleId?: string;
   operationType: FinishingProcessType;
@@ -299,7 +299,7 @@ export async function createFinishingOperationInSupabase(payload: {
   }
 
   // Verify parent Production Job & available stitched quantity
-  const job = await getProductionJobByIdFromSupabase(payload.productionJobId);
+  const job = await getProductionJobByIdFromDB(payload.productionJobId);
   if (!job) {
     throw new Error(`Production Job with ID '${payload.productionJobId}' not found.`);
   }
@@ -348,7 +348,7 @@ export async function createFinishingOperationInSupabase(payload: {
   setLocalFinishingOperations([newOp, ...currentLocal]);
 
   // Update Production Job stage to 'finishing'
-  await updateProductionJobInSupabase(payload.productionJobId, {
+  await updateProductionJobInDB(payload.productionJobId, {
     stage: "finishing",
     status: "in_production",
   });
@@ -362,29 +362,29 @@ export async function createFinishingOperationInSupabase(payload: {
     "Finishing Supervisor"
   );
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return newOp;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const row = mapOpToRow(newOp);
     delete row.id;
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("finishing_operations")
       .insert(row)
       .select()
       .single();
 
     if (error || !data) {
-      console.warn("Supabase insert error for finishing_operations, saved locally:", error?.message);
+      console.warn("Database insert error for finishing_operations, saved locally:", error?.message);
       return newOp;
     }
 
     return mapRowToFinishingOp(data);
   } catch (err) {
-    console.error("Failed to insert finishing_operation in Supabase:", err);
+    console.error("Failed to insert finishing_operation in Database:", err);
     return newOp;
   }
 }
@@ -392,7 +392,7 @@ export async function createFinishingOperationInSupabase(payload: {
 /**
  * Update an existing Finishing Operation
  */
-export async function updateFinishingOperationInSupabase(
+export async function updateFinishingOperationInDB(
   id: string,
   updates: Partial<FinishingOperationRecord>
 ): Promise<FinishingOperationRecord> {
@@ -412,16 +412,16 @@ export async function updateFinishingOperationInSupabase(
     throw new Error(`Finishing operation with ID '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapOpToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("finishing_operations")
       .update(rowUpdates)
       .eq("id", id)
@@ -429,13 +429,13 @@ export async function updateFinishingOperationInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase update error for finishing_operations:", error?.message);
+      console.warn("Database update error for finishing_operations:", error?.message);
       return updatedRecord;
     }
 
     return mapRowToFinishingOp(data);
   } catch (err) {
-    console.error("Failed to update finishing_operation in Supabase:", err);
+    console.error("Failed to update finishing_operation in Database:", err);
     return updatedRecord;
   }
 }
@@ -443,7 +443,7 @@ export async function updateFinishingOperationInSupabase(
 /**
  * Complete a Finishing Operation and reconcile quantities into QA stage
  */
-export async function completeFinishingOperationInSupabase(payload: {
+export async function completeFinishingOperationInDB(payload: {
   operationId: string;
   processedQuantity: number;
   passedQuantity: number;
@@ -452,7 +452,7 @@ export async function completeFinishingOperationInSupabase(payload: {
   notes?: string;
   actor?: string;
 }): Promise<FinishingOperationRecord> {
-  const op = await getFinishingOperationByIdFromSupabase(payload.operationId);
+  const op = await getFinishingOperationByIdFromDB(payload.operationId);
   if (!op) {
     throw new Error(`Finishing operation '${payload.operationId}' not found.`);
   }
@@ -473,7 +473,7 @@ export async function completeFinishingOperationInSupabase(payload: {
   }
 
   const nowIso = new Date().toISOString();
-  const updatedOp = await updateFinishingOperationInSupabase(payload.operationId, {
+  const updatedOp = await updateFinishingOperationInDB(payload.operationId, {
     processedQuantity: processed,
     passedQuantity: passed,
     rejectedQuantity: rejected,
@@ -484,12 +484,12 @@ export async function completeFinishingOperationInSupabase(payload: {
   });
 
   // Reconcile total_finished_quantity in parent Production Job
-  const job = await getProductionJobByIdFromSupabase(op.productionJobId);
+  const job = await getProductionJobByIdFromDB(op.productionJobId);
   if (job) {
     const newTotalFinished = (job.totalFinishedQuantity || 0) + passed;
     const shouldAdvanceToQa = newTotalFinished >= job.plannedQuantity || passed > 0;
 
-    await updateProductionJobInSupabase(op.productionJobId, {
+    await updateProductionJobInDB(op.productionJobId, {
       totalFinishedQuantity: newTotalFinished,
       totalRejectedQuantity: (job.totalRejectedQuantity || 0) + rejected,
       totalReworkQuantity: (job.totalReworkQuantity || 0) + rework,
@@ -512,7 +512,7 @@ export async function completeFinishingOperationInSupabase(payload: {
 /**
  * Record a formal Finishing Inspection & Defect Classification
  */
-export async function createFinishingInspectionInSupabase(payload: {
+export async function createFinishingInspectionInDB(payload: {
   productionJobId: string;
   finishingOperationId?: string;
   bundleId?: string;
@@ -578,54 +578,54 @@ export async function createFinishingInspectionInSupabase(payload: {
     payload.inspectorName
   );
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return newInsp;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const row = mapInspToRow(newInsp);
     delete row.id;
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("finishing_inspections")
       .insert(row)
       .select()
       .single();
 
     if (error || !data) {
-      console.warn("Supabase insert error for finishing_inspections, saved locally:", error?.message);
+      console.warn("Database insert error for finishing_inspections, saved locally:", error?.message);
       return newInsp;
     }
 
     return mapRowToFinishingInsp(data);
   } catch (err) {
-    console.error("Failed to insert finishing_inspection in Supabase:", err);
+    console.error("Failed to insert finishing_inspection in Database:", err);
     return newInsp;
   }
 }
 
 /**
- * Fetch all Finishing Inspections from Supabase PostgreSQL
+ * Fetch all Finishing Inspections from Database PostgreSQL
  */
-export async function getFinishingInspectionsFromSupabase(
+export async function getFinishingInspectionsFromDB(
   productionJobId?: string
 ): Promise<FinishingInspectionRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const local = getLocalFinishingInspections();
     return productionJobId ? local.filter((i) => i.productionJobId === productionJobId) : local;
   }
 
   try {
-    const supabase = createClient();
-    let query = supabase.from("finishing_inspections").select("*").order("created_at", { ascending: false });
+    const database = createClient();
+    let query = database.from("finishing_inspections").select("*").order("created_at", { ascending: false });
     if (productionJobId) {
       query = query.eq("production_job_id", productionJobId);
     }
     const { data, error } = await query;
 
     if (error) {
-      console.warn("Supabase fetch error for finishing_inspections:", error.message);
+      console.warn("Database fetch error for finishing_inspections:", error.message);
       const local = getLocalFinishingInspections();
       return productionJobId ? local.filter((i) => i.productionJobId === productionJobId) : local;
     }
@@ -633,7 +633,7 @@ export async function getFinishingInspectionsFromSupabase(
     const domain = (data || []).map(mapRowToFinishingInsp);
     return domain;
   } catch (err) {
-    console.error("Failed to query finishing_inspections from Supabase:", err);
+    console.error("Failed to query finishing_inspections from Database:", err);
     const local = getLocalFinishingInspections();
     return productionJobId ? local.filter((i) => i.productionJobId === productionJobId) : local;
   }
@@ -643,24 +643,24 @@ export async function getFinishingInspectionsFromSupabase(
  * Fetch all finishing operations for a specific production job
  */
 export async function getFinishingForProductionJob(jobId: string): Promise<FinishingOperationRecord[]> {
-  const all = await getFinishingOperationsFromSupabase();
+  const all = await getFinishingOperationsFromDB();
   return all.filter((o) => o.productionJobId === jobId);
 }
 
 /**
  * Record a finishing rework request with defect traceability
  */
-export async function recordFinishingReworkInSupabase(payload: {
+export async function recordFinishingReworkInDB(payload: {
   operationId: string;
   reworkQuantity: number;
   defectCategory: FinishingDefectCategory;
   notes: string;
   inspectorName: string;
 }): Promise<FinishingInspectionRecord> {
-  const op = await getFinishingOperationByIdFromSupabase(payload.operationId);
+  const op = await getFinishingOperationByIdFromDB(payload.operationId);
   if (!op) throw new Error("Finishing operation not found.");
 
-  return createFinishingInspectionInSupabase({
+  return createFinishingInspectionInDB({
     productionJobId: op.productionJobId,
     finishingOperationId: op.id,
     bundleId: op.bundleId,
@@ -678,17 +678,17 @@ export async function recordFinishingReworkInSupabase(payload: {
 /**
  * Record finishing scrap / rejection
  */
-export async function recordFinishingRejectInSupabase(payload: {
+export async function recordFinishingRejectInDB(payload: {
   operationId: string;
   rejectQuantity: number;
   defectCategory: FinishingDefectCategory;
   notes: string;
   inspectorName: string;
 }): Promise<FinishingInspectionRecord> {
-  const op = await getFinishingOperationByIdFromSupabase(payload.operationId);
+  const op = await getFinishingOperationByIdFromDB(payload.operationId);
   if (!op) throw new Error("Finishing operation not found.");
 
-  return createFinishingInspectionInSupabase({
+  return createFinishingInspectionInDB({
     productionJobId: op.productionJobId,
     finishingOperationId: op.id,
     bundleId: op.bundleId,
@@ -704,12 +704,12 @@ export async function recordFinishingRejectInSupabase(payload: {
 }
 
 /**
- * Calculate live Finishing Floor KPIs from Supabase PostgreSQL
+ * Calculate live Finishing Floor KPIs from Database PostgreSQL
  */
-export async function getFinishingMetricsFromSupabase(): Promise<FinishingFloorMetrics> {
+export async function getFinishingMetricsFromDB(): Promise<FinishingFloorMetrics> {
   const [ops, insps] = await Promise.all([
-    getFinishingOperationsFromSupabase(),
-    getFinishingInspectionsFromSupabase(),
+    getFinishingOperationsFromDB(),
+    getFinishingInspectionsFromDB(),
   ]);
 
   if (ops.length === 0 && insps.length === 0) {

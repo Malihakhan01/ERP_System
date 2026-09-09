@@ -22,7 +22,7 @@ import {
 import {
   mapAdvanceRecordToRow,
   mapRowToAdvanceRecord,
-} from "../lib/supabase/advances-db.ts";
+} from "../lib/services/-service.ts";
 import { createBlankEmployeeRecord, formatPKR } from "../lib/employees-engine.ts";
 
 console.log("================================================================");
@@ -343,7 +343,7 @@ runTest(26, "Currency formatter PKR formats amounts with thousand separators", (
   assert.equal(formatPKR(0), "PKR 0");
 });
 
-// 27. Supabase Database Row Mapping
+// 27. Database Database Row Mapping
 runTest(27, "Map AdvanceRecord to PostgreSQL row and back", () => {
   const emp = createBlankEmployeeRecord([]);
   emp.id = "emp_db_1";
@@ -382,8 +382,8 @@ runTest(27, "Map AdvanceRecord to PostgreSQL row and back", () => {
   assert.equal(restored.requestedAmount, 25000);
 });
 
-// 28. Supabase Repayments mapping
-runTest(28, "Map Supabase advance_repayments rows to AdvanceRepaymentItem", () => {
+// 28. Database Repayments mapping
+runTest(28, "Map Database advance_repayments rows to AdvanceRepaymentItem", () => {
   const mockDbRow = {
     id: "adv_uuid",
     advance_number: "ADV-2026-015",

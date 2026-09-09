@@ -5,7 +5,7 @@ export async function GET() {
   try {
     // 1. Orders
     const ordersRows = await executeQuery<any>(
-      "SELECT COUNT(*) as active_orders, SUM(total_value) as total_order_value, SUM(quantity) as total_units FROM orders WHERE is_archived = 0 AND status != 'cancelled'"
+      "SELECT COUNT(*) as active_orders, COALESCE(SUM(total_value), 0) as total_order_value, COALESCE(SUM(quantity), 0) as total_units FROM orders WHERE is_archived = 0 AND status != 'cancelled'"
     );
     const activeOrders = Number(ordersRows[0]?.active_orders || 0);
     const totalOrderValue = Number(ordersRows[0]?.total_order_value || 0);
@@ -13,7 +13,7 @@ export async function GET() {
 
     // 2. Production Floor & Jobs
     const jobsRows = await executeQuery<any>(
-      "SELECT COUNT(*) as active_jobs, SUM(planned_quantity) as total_planned_qty FROM production_jobs WHERE is_archived = 0 AND status != 'completed'"
+      "SELECT COUNT(*) as active_jobs, COALESCE(SUM(planned_quantity), 0) as total_planned_qty FROM production_jobs WHERE is_archived = 0 AND status != 'completed'"
     );
     const activeInProductionJobs = Number(jobsRows[0]?.active_jobs || 0);
 
@@ -21,7 +21,7 @@ export async function GET() {
     const cuttingRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM cutting_plans WHERE status != 'completed' AND status != 'cancelled'");
     const stitchingRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM production_bundles WHERE status != 'completed'");
     const finishingRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM finishing_operations WHERE status != 'completed'");
-    const qaRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM qa_inspections WHERE inspection_result = 'Pending' OR status = 'pending'");
+    const qaRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM qa_inspections WHERE decision = 'pending' OR decision = 'Pending'");
     const packingRows = await executeQuery<any>("SELECT COUNT(*) as cnt FROM packing_cartons WHERE status = 'open' OR status = 'in_progress'");
 
     const cuttingCount = Number(cuttingRows[0]?.cnt || 0);
@@ -30,45 +30,46 @@ export async function GET() {
     const qaCount = Number(qaRows[0]?.cnt || 0);
     const packingCount = Number(packingRows[0]?.cnt || 0);
 
-    // 3. Dispatch & Warehouse Cartons
+    // 3. Dispatch & Warehouse Cartons (Packed, Loaded, Staged, or Dispatched)
     const stagedCartonsRows = await executeQuery<any>(
-      "SELECT COUNT(*) as cnt FROM packing_cartons WHERE status = 'sealed' OR status = 'loaded'"
+      "SELECT COUNT(*) as cnt FROM packing_cartons WHERE status IN ('sealed', 'loaded', 'packed', 'dispatch_ready', 'completed', 'dispatched')"
     );
     const pendingDispatchCartons = Number(stagedCartonsRows[0]?.cnt || 0);
 
     // 4. Warehouse Fabric Stock & Alerts
     const fabricRows = await executeQuery<any>(
-      "SELECT SUM(available_stock) as fabric_kg, SUM(allocated_stock) as allocated_kg, SUM(total_stock * unit_cost) as total_valuation FROM inventory_items WHERE is_archived = 0 AND category = 'fabric'"
+      "SELECT COALESCE(SUM(available_stock), 0) as fabric_kg, COALESCE(SUM(allocated_stock), 0) as allocated_kg, COALESCE(SUM((available_stock + allocated_stock) * unit_cost), 0) as total_valuation FROM inventory_items WHERE is_archived = 0 AND category = 'fabric'"
     );
     const rawFabricStockKg = Number(fabricRows[0]?.fabric_kg || 0);
     const fabricAllocatedKg = Number(fabricRows[0]?.allocated_kg || 0);
     const totalInventoryValuation = Number(fabricRows[0]?.total_valuation || 0);
 
     const lowStockRows = await executeQuery<any>(
-      "SELECT COUNT(*) as cnt FROM inventory_items WHERE is_archived = 0 AND (available_stock <= min_reorder_level OR available_stock <= 0)"
+      "SELECT COUNT(*) as cnt FROM inventory_items WHERE is_archived = 0 AND available_stock <= reorder_point AND reorder_point > 0"
     );
     const lowStockAlerts = Number(lowStockRows[0]?.cnt || 0);
 
     // Bay Distribution
     const bayRows = await executeQuery<any>(
-      "SELECT bay, SUM(available_stock) as total_avail FROM inventory_items WHERE is_archived = 0 GROUP BY bay"
+      "SELECT bay, COALESCE(SUM(available_stock), 0) as total_avail FROM inventory_items WHERE is_archived = 0 GROUP BY bay"
     );
     const bayStock: Record<string, number> = { bay1: 0, bay2: 0, bay3: 0, bay4: 0 };
     for (const b of bayRows) {
-      if (b.bay && bayStock[b.bay] !== undefined) {
-        bayStock[b.bay] = Number(b.total_avail || 0);
+      const normKey = String(b.bay || "").replace("_", "").toLowerCase();
+      if (bayStock[normKey] !== undefined) {
+        bayStock[normKey] += Number(b.total_avail || 0);
       }
     }
 
     // 5. Commercial Purchases & Accounts Payable
     const purchasesRows = await executeQuery<any>(
-      "SELECT SUM(balance) as total_payable, SUM(total_amount) as total_po_val FROM purchases WHERE is_archived = 0"
+      "SELECT COALESCE(SUM(balance), 0) as total_payable, COALESCE(SUM(total_amount), 0) as total_po_val FROM purchases WHERE is_archived = 0"
     );
     const accountsPayable = Number(purchasesRows[0]?.total_payable || 0);
 
     // 6. Invoices & Receivables
     const invoicesRows = await executeQuery<any>(
-      "SELECT SUM(grand_total) as total_invoiced, SUM(paid_amount) as total_collected, SUM(balance_due) as total_receivable FROM invoices WHERE is_archived = 0"
+      "SELECT COALESCE(SUM(grand_total), 0) as total_invoiced, COALESCE(SUM(paid_amount), 0) as total_collected, COALESCE(SUM(balance_due), 0) as total_receivable FROM invoices WHERE is_archived = 0"
     );
     const totalInvoiced = Number(invoicesRows[0]?.total_invoiced || 0);
     const totalCollected = Number(invoicesRows[0]?.total_collected || 0);
@@ -76,7 +77,7 @@ export async function GET() {
 
     // 7. Costing Margins
     const costingRows = await executeQuery<any>(
-      "SELECT AVG(net_margin_pct) as avg_margin FROM cost_estimates WHERE is_archived = 0"
+      "SELECT COALESCE(AVG(target_percentage), 25.0) as avg_margin FROM cost_estimates"
     );
     const estimatedGrossMargin = Number(costingRows[0]?.avg_margin || 24.5);
 
@@ -88,6 +89,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      dbConnected: true,
+      isDemoFallback: false,
       data: {
         kpis: {
           activeOrders,
@@ -124,11 +127,13 @@ export async function GET() {
       },
     });
   } catch (error: any) {
+    console.error("Dashboard metrics query failure:", error);
     // Graceful fallback for offline development mode or before MySQL schema is loaded
     return NextResponse.json({
       success: true,
       dbConnected: false,
       isDemoFallback: true,
+      error: error?.message || String(error),
       data: {
         kpis: {
           activeOrders: 14,

@@ -35,9 +35,9 @@ import {
   Barcode,
 } from "lucide-react";
 import {
-  getProductionJobsFromSupabase,
-  createProductionJobInSupabase,
-  deleteProductionJobInSupabase,
+  getProductionJobsFromDB,
+  createProductionJobInDB,
+  deleteProductionJobInDB,
   ProductionJobRecord,
   CuttingPlanRecord,
   ProductionBundleRecord,
@@ -47,11 +47,11 @@ import {
   ProductionStatus,
 } from "@/lib/services/production-service";
 import type { FinishingOperationRecord } from "@/lib/services/finishing-service";
-import { getOrdersFromSupabase } from "@/lib/services/orders-service";
+import { getOrdersFromDB } from "@/lib/services/orders-service";
 import { type OrderRecord, INITIAL_ORDERS } from "@/lib/orders-engine";
-import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
+import { getEmployeesFromDB } from "@/lib/services/employees-service";
 import type { EmployeeRecord } from "@/lib/employees-engine";
-import { getInventoryFromSupabase, InventoryItem } from "@/lib/services/inventory-service";
+import { getInventoryFromDB, InventoryItem } from "@/lib/services/inventory-service";
 import { useBarcodeScanner, BarcodeScannerBanner } from "@/lib/hooks/useBarcodeScanner";
 import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
@@ -212,19 +212,19 @@ export default function ProductionPage() {
     setLoading(true);
     try {
       // 1. Fetch Production Jobs
-      const jobsRes = await getProductionJobsFromSupabase();
+      const jobsRes = await getProductionJobsFromDB();
       setJobs(jobsRes || []);
 
       // 2. Fetch Orders
-      const ordersRes = await getOrdersFromSupabase();
+      const ordersRes = await getOrdersFromDB();
       setOrders(ordersRes && ordersRes.length > 0 ? ordersRes : INITIAL_ORDERS);
 
       // 3. Fetch Employees
-      const empRes = await getEmployeesFromSupabase();
+      const empRes = await getEmployeesFromDB();
       setEmployees(empRes || []);
 
       // 4. Fetch Inventory
-      const invRes = await getInventoryFromSupabase();
+      const invRes = await getInventoryFromDB();
       setInventory(invRes || []);
 
       // 5. Fetch Production Floor Metrics
@@ -367,7 +367,7 @@ export default function ProductionPage() {
     };
 
     try {
-      const savedJob = await createProductionJobInSupabase(newJobPayload as any);
+      const savedJob = await createProductionJobInDB(newJobPayload as any);
       setJobs((prev) => [savedJob, ...prev.filter((j) => j.jobNumber !== savedJob.jobNumber)]);
       success("Work Order Released to Floor", {
         description: `Production Job ${savedJob.jobNumber} created and saved in MySQL.`,
@@ -500,7 +500,7 @@ export default function ProductionPage() {
   const handleArchiveJob = async () => {
     if (!jobToArchive) return;
     try {
-      await deleteProductionJobInSupabase(jobToArchive.id);
+      await deleteProductionJobInDB(jobToArchive.id);
       setJobs((prev) => prev.filter((j) => j.id !== jobToArchive.id));
       success("Work Order Archived", { description: `Work order ${jobToArchive.jobNumber} has been archived.` });
       setJobToArchive(null);
@@ -591,6 +591,7 @@ export default function ProductionPage() {
                 <FormSection
                   title="1. Commercial Source Order (Confirmed Only)"
                   description="Select the client contract. Specifications and garment styles will automatically populate."
+                  gridClassName="block space-y-4 w-full"
                 >
                   <FormField label="Select Sales Order" required error={formErrors.order}>
                     <select
@@ -635,6 +636,7 @@ export default function ProductionPage() {
                 <FormSection
                   title="2. Floor Scheduling & Line Assignment"
                   description="Specify the work order code, floor targets, line allocation, and floor supervisor."
+                  gridClassName="block space-y-4 w-full"
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField label="Job / Work Order #" required error={formErrors.jobNumber}>

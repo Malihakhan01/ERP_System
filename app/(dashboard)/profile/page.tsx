@@ -388,9 +388,9 @@ export default function UserProfilePage() {
                     onChange={(e) => setPlant(e.target.value)}
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-blue-500 bg-white"
                   >
-                    <option value="Unit 1 - Korangi Garment Hub">Unit 1 — Korangi Garment Hub (Lines 1-12)</option>
-                    <option value="Unit 2 - Landhi Industrial Park">Unit 2 — Landhi Export Processing Zone</option>
-                    <option value="Headquarters Executive Suite">Executive Suite & Commercial HQ</option>
+                    <option value="Unit 1 - Small Industrial Estate, Sialkot">Unit 1 — Small Industrial Estate, Sialkot (Lines 1-12)</option>
+                    <option value="Unit 2 - Daska Road Logistics Zone, Sialkot">Unit 2 — Daska Road Export Zone, Sialkot</option>
+                    <option value="Sialkot Executive Suite - Paris Road">Executive Suite & Commercial HQ — Paris Road, Sialkot</option>
                   </select>
                 </div>
               </div>

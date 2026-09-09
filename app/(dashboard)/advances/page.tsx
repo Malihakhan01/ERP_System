@@ -57,11 +57,11 @@ import {
   formatPKR,
 } from "@/lib/employees-engine";
 import {
-  getAdvancesFromSupabase,
-  createAdvanceInSupabase,
-  updateAdvanceInSupabase,
+  getAdvancesFromDB,
+  createAdvanceInDB,
+  updateAdvanceInDB,
 } from "@/lib/services/advances-service";
-import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
+import { getEmployeesFromDB } from "@/lib/services/employees-service";
 
 const STATUS_CONFIG: Record<
   AdvanceStatus,
@@ -111,7 +111,7 @@ export default function AdvancesPage() {
 
   // Sync latest employees and advances on mount
   React.useEffect(() => {
-    getEmployeesFromSupabase()
+    getEmployeesFromDB()
       .then((emps) => {
         if (emps && emps.length > 0) {
           setLocalEmployeesOverride(emps);
@@ -119,7 +119,7 @@ export default function AdvancesPage() {
       })
       .catch((err) => console.error("Failed to load employees for advances:", err));
 
-    getAdvancesFromSupabase()
+    getAdvancesFromDB()
       .then((advs) => {
         if (advs && advs.length > 0) {
           setLocalAdvancesOverride(advs);
@@ -276,7 +276,7 @@ export default function AdvancesPage() {
 
     const updatedList = [newAdvance, ...advances];
     saveAdvancesList(updatedList);
-    createAdvanceInSupabase(newAdvance).catch((e) => console.error(e));
+    createAdvanceInDB(newAdvance).catch((e) => console.error(e));
 
     setIsRequestModalOpen(false);
     toast({
@@ -294,7 +294,7 @@ export default function AdvancesPage() {
 
     const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
     saveAdvancesList(updatedList);
-    updateAdvanceInSupabase(updated).catch((e) => console.error(e));
+    updateAdvanceInDB(updated).catch((e) => console.error(e));
 
     setIsApproveModalOpen(false);
     toast({
@@ -311,7 +311,7 @@ export default function AdvancesPage() {
 
     const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
     saveAdvancesList(updatedList);
-    updateAdvanceInSupabase(updated).catch((e) => console.error(e));
+    updateAdvanceInDB(updated).catch((e) => console.error(e));
 
     toast({
       type: "success",
@@ -327,7 +327,7 @@ export default function AdvancesPage() {
 
     const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
     saveAdvancesList(updatedList);
-    updateAdvanceInSupabase(updated).catch((e) => console.error(e));
+    updateAdvanceInDB(updated).catch((e) => console.error(e));
 
     setIsRejectModalOpen(false);
     toast({
@@ -345,7 +345,7 @@ export default function AdvancesPage() {
 
     const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
     saveAdvancesList(updatedList);
-    updateAdvanceInSupabase(updated).catch((e) => console.error(e));
+    updateAdvanceInDB(updated).catch((e) => console.error(e));
 
     setIsRepaymentModalOpen(false);
     toast({
@@ -367,7 +367,7 @@ export default function AdvancesPage() {
 
     const updatedList = advances.map((a) => (a.id === updated.id ? updated : a));
     saveAdvancesList(updatedList);
-    updateAdvanceInSupabase(updated).catch((e) => console.error(e));
+    updateAdvanceInDB(updated).catch((e) => console.error(e));
 
     setAdvanceToArchive(null);
     if (selectedAdvanceId === advanceToArchive.id) setSelectedAdvanceId(null);
@@ -892,11 +892,19 @@ export default function AdvancesPage() {
             </div>
           </div>
 
-          <ModalFooter>
+          <ModalFooter className="no-print">
             <Button variant="ghost" onClick={() => setIsPrintModalOpen(false)}>
               Close
             </Button>
-            <Button variant="primary" leftIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
+            <Button
+              variant="primary"
+              leftIcon={<Printer className="h-4 w-4" />}
+              onClick={() => {
+                document.body.classList.add("print-document-active");
+                window.print();
+                document.body.classList.remove("print-document-active");
+              }}
+            >
               Print Document
             </Button>
           </ModalFooter>
@@ -1053,7 +1061,10 @@ export default function AdvancesPage() {
                     <tr
                       key={adv.id}
                       className="hover:bg-slate-50/70 cursor-pointer transition-colors"
-                      onClick={() => setSelectedAdvanceId(adv.id)}
+                      onClick={() => {
+                        setAdvanceToArchive(null);
+                        setSelectedAdvanceId(adv.id);
+                      }}
                     >
                       <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{adv.advanceNumber}</td>
                       <td className="py-3.5 px-4">
@@ -1085,7 +1096,11 @@ export default function AdvancesPage() {
                             variant="ghost"
                             size="sm"
                             title="View Ledger"
-                            onClick={() => setSelectedAdvanceId(adv.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAdvanceToArchive(null);
+                              setSelectedAdvanceId(adv.id);
+                            }}
                           >
                             <Eye className="h-3.5 w-3.5 text-blue-600" />
                           </Button>
@@ -1094,7 +1109,10 @@ export default function AdvancesPage() {
                               variant="ghost"
                               size="sm"
                               title="Archive Record"
-                              onClick={() => setAdvanceToArchive(adv)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAdvanceToArchive(adv);
+                              }}
                             >
                               <Archive className="h-3.5 w-3.5 text-amber-600" />
                             </Button>
@@ -1163,11 +1181,14 @@ export default function AdvancesPage() {
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
         title="Request Employee Advance Loan"
-        size="lg"
+        size="xl"
       >
         <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
-          <FormSection title="1. Select Employee & Contract Verification">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormSection
+            title="1. Select Employee & Contract Verification"
+            gridClassName="block space-y-4 w-full"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               <FormField label="Select Employee *" error={formErrors.employeeId}>
                 <Select
                   value={selectedEmpId}
@@ -1219,7 +1240,7 @@ export default function AdvancesPage() {
             </div>
 
             {getEmployeeActiveAdvance(selectedEmpId, advances) && (
-              <div className="p-3 mt-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+              <div className="p-3.5 mt-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 w-full">
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <strong className="font-bold">Existing Advance Pending Recovery:</strong>{" "}
@@ -1231,8 +1252,11 @@ export default function AdvancesPage() {
             )}
           </FormSection>
 
-          <FormSection title="2. Advance Loan & Repayment Configuration">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormSection
+            title="2. Advance Loan & Repayment Configuration"
+            gridClassName="block space-y-4 w-full"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               <FormField label="Requested Advance Amount (PKR) *" error={formErrors.requestedAmount}>
                 <Input
                   type="number"
@@ -1257,11 +1281,11 @@ export default function AdvancesPage() {
                 />
               </FormField>
 
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2 w-full">
                 <FormField label="Reason for Advance *" error={formErrors.reason}>
                   <Textarea
-                    rows={2}
-                    placeholder="Provide specific reason (e.g. Emergency family medical treatment, House repair)"
+                    rows={3}
+                    placeholder="Provide specific reason (e.g. Emergency family medical treatment, House repair, Educational fee)"
                     value={advanceReason}
                     onChange={(e) => setAdvanceReason(e.target.value)}
                   />
@@ -1271,26 +1295,26 @@ export default function AdvancesPage() {
 
             {/* Real-time Calculation Summary Card */}
             {typeof requestedAmount === "number" && requestedAmount > 0 && (
-              <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs w-full shadow-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-blue-700 uppercase">Total Advance:</span>
-                  <p className="text-base font-extrabold text-blue-950 mt-0.5">{formatPKR(requestedAmount)}</p>
+                  <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Total Advance:</span>
+                  <p className="text-lg font-extrabold text-blue-950 mt-0.5">{formatPKR(requestedAmount)}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-blue-700 uppercase">Monthly Deduction:</span>
-                  <p className="text-base font-extrabold text-blue-700 mt-0.5">
+                  <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Monthly Payroll Deduction:</span>
+                  <p className="text-lg font-extrabold text-blue-700 mt-0.5">
                     {formatPKR(computedMonthlyDeduction)} / mo
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-blue-700 uppercase">Duration:</span>
-                  <p className="text-base font-extrabold text-slate-900 mt-0.5">{repaymentMonths} Payroll Cycles</p>
+                  <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Recovery Duration:</span>
+                  <p className="text-lg font-extrabold text-slate-900 mt-0.5">{repaymentMonths} Payroll Cycles</p>
                 </div>
               </div>
             )}
 
             {formWarnings.length > 0 && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2 w-full">
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <span>{formWarnings[0]}</span>
               </div>
@@ -1307,6 +1331,17 @@ export default function AdvancesPage() {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Archive Dialog in Main Directory View */}
+      <ConfirmDialog
+        isOpen={!!advanceToArchive}
+        onClose={() => setAdvanceToArchive(null)}
+        onConfirm={handleArchiveConfirm}
+        title="Archive Advance Record"
+        description={`Archive ${advanceToArchive?.advanceNumber}? All repayment histories will be safely preserved.`}
+        confirmLabel="Archive Record"
+        destructive
+      />
     </>
   );
 }

@@ -11,7 +11,7 @@ import type {
 import { PAYROLL_STORAGE_KEY } from "../payroll-engine";
 
 /**
- * Check if real Supabase credentials exist
+ * Check if real Database credentials exist
  */
 
 /**
@@ -118,9 +118,9 @@ export function mapRowToPayrollRun(row: any, records: any[] = []): PayrollRun {
 }
 
 /**
- * Fetch all Payroll Runs from Supabase
+ * Fetch all Payroll Runs from Database
  */
-export async function getPayrollRunsFromSupabase(): Promise<PayrollRun[]> {
+export async function getPayrollRunsFromDB(): Promise<PayrollRun[]> {
   try {
     const res = await fetch("/api/payroll");
     const json = await res.json();
@@ -135,9 +135,9 @@ export async function getPayrollRunsFromSupabase(): Promise<PayrollRun[]> {
 }
 
 /**
- * Create a new Payroll Run in Supabase
+ * Create a new Payroll Run in Database
  */
-export async function createPayrollRunInSupabase(run: PayrollRun): Promise<PayrollRun> {
+export async function createPayrollRunInDB(run: PayrollRun): Promise<PayrollRun> {
   const currentLocal = getLocalPayrollRuns();
   const filtered = currentLocal.filter((r) => r.id !== run.id && r.payrollNumber !== run.payrollNumber);
   const updatedLocal = [run, ...filtered];
@@ -161,9 +161,9 @@ export async function createPayrollRunInSupabase(run: PayrollRun): Promise<Payro
 }
 
 /**
- * Mark a single payroll record as Paid in Supabase
+ * Mark a single payroll record as Paid in Database
  */
-export async function updatePayrollRecordPaidInSupabase(
+export async function updatePayrollRecordPaidInDB(
   record: PayrollRecordItem,
   payment: PayrollPayment
 ): Promise<boolean> {

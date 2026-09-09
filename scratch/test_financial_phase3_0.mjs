@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Phase 3.0: Financial & Cost Reconciliation Module
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — PHASE 3.0 FINANCIAL & COST RECONCILIATION TEST SUITE");
@@ -37,9 +37,9 @@ try {
   console.log("Reading from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -332,10 +332,10 @@ async function runTests() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 23: Supabase persistence structure
+    // TEST 23: Database persistence structure
     // -------------------------------------------------------------------------
-    const finDbExists = fs.existsSync("lib/supabase/financial-reconciliation-db.ts");
-    assert(finDbExists, "23. Supabase financial reconciliation database service layer verified");
+    const finDbExists = fs.existsSync("lib/services/financial-reconciliation-db.ts");
+    assert(finDbExists, "23. Database financial reconciliation database service layer verified");
 
     // -------------------------------------------------------------------------
     // TEST 24: Financial Engine pure calculation layer verified
@@ -362,7 +362,7 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 26: PostgreSQL relational schema for financial_adjustments in schema.sql
     // -------------------------------------------------------------------------
-    const schemaSql = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schemaSql = fs.readFileSync("database/schema.sql", "utf-8");
     const hasFinancialAdjustments = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.financial_adjustments");
     assert(
       hasFinancialAdjustments,

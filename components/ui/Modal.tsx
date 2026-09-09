@@ -61,22 +61,39 @@ export function Modal({
     return () => dialog.removeEventListener("cancel", handleCancel);
   }, [onClose]);
 
-  // Close on backdrop click
+  const mouseDownTargetRef = React.useRef<EventTarget | null>(null);
+
+  // Track mousedown to differentiate between clicking outside and selecting text inside
+  const handleMouseDown = (e: React.MouseEvent<HTMLDialogElement>) => {
+    mouseDownTargetRef.current = e.target;
+  };
+
+  // Close on backdrop click (clicking outside the modal container)
   const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (!closeOnBackdrop) return;
-    const rect = dialogRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const clickedOutside =
-      e.clientX < rect.left ||
-      e.clientX > rect.right ||
-      e.clientY < rect.top ||
-      e.clientY > rect.bottom;
-    if (clickedOutside) onClose();
+    const isTargetDialog = e.target === dialogRef.current;
+    const wasMouseDownDialog = mouseDownTargetRef.current === dialogRef.current;
+
+    // If click or mousedown originated on the backdrop
+    if (isTargetDialog || wasMouseDownDialog) {
+      const rect = dialogRef.current?.getBoundingClientRect();
+      const clickedOutside =
+        !rect ||
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom;
+
+      if (clickedOutside || isTargetDialog) {
+        onClose();
+      }
+    }
   };
 
   return (
     <dialog
       ref={dialogRef}
+      onMouseDown={handleMouseDown}
       onClick={handleBackdropClick}
       className={cn(
         "fixed inset-0 m-auto z-50 w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto",
@@ -112,7 +129,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="ml-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            className="ml-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer no-print"
             aria-label="Close dialog"
           >
             <X className="h-5 w-5" />
@@ -132,7 +149,7 @@ export function ModalFooter({ children, className }: { children: React.ReactNode
   return (
     <div
       className={cn(
-        "flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4 bg-slate-50/50",
+        "flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4 bg-slate-50/50 no-print",
         className
       )}
     >

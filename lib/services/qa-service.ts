@@ -1,17 +1,17 @@
 // lib/services/qa-service.ts
-// FactoryOS PostgreSQL Supabase Repository for Quality Assurance & AQL Inspection Module
+// FactoryOS PostgreSQL Database Repository for Quality Assurance & AQL Inspection Module
 // Authoritative ANSI/ASQ Z1.4 & ISO 2859-1 Single Sampling Quality Engine
 
 import {
-  getProductionJobsFromSupabase,
-  getProductionJobByIdFromSupabase,
-  updateProductionJobInSupabase,
+  getProductionJobsFromDB,
+  getProductionJobByIdFromDB,
+  updateProductionJobInDB,
   addProductionTimelineEvent,
   ProductionJobRecord,
 } from "./production-service";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -522,9 +522,9 @@ function mapQAReworkToRow(rwk: Partial<QAReworkRecord>): any {
 // -----------------------------------------------------------------------------
 
 /**
- * Fetch all QA Inspections from Supabase PostgreSQL
+ * Fetch all QA Inspections from Database PostgreSQL
  */
-export async function getQAInspectionsFromSupabase(): Promise<QAInspectionRecord[]> {
+export async function getQAInspectionsFromDB(): Promise<QAInspectionRecord[]> {
   try {
     const res = await fetch("/api/qa");
     const json = await res.json();
@@ -547,15 +547,15 @@ export async function getQAInspectionsFromSupabase(): Promise<QAInspectionRecord
 /**
  * Fetch single QA Inspection by ID
  */
-export async function getQAInspectionByIdFromSupabase(id: string): Promise<QAInspectionRecord | null> {
-  const all = await getQAInspectionsFromSupabase();
+export async function getQAInspectionByIdFromDB(id: string): Promise<QAInspectionRecord | null> {
+  const all = await getQAInspectionsFromDB();
   return all.find((i) => i.id === id) || null;
 }
 
 /**
  * Create a new QA Inspection record
  */
-export async function createQAInspectionInSupabase(payload: {
+export async function createQAInspectionInDB(payload: {
   productionJobId: string;
   orderId?: string;
   clientId?: string;
@@ -573,7 +573,7 @@ export async function createQAInspectionInSupabase(payload: {
     throw new Error("Lot quantity cannot be negative.");
   }
 
-  const job = await getProductionJobByIdFromSupabase(payload.productionJobId);
+  const job = await getProductionJobByIdFromDB(payload.productionJobId);
   if (!job) {
     throw new Error(`Production Job '${payload.productionJobId}' not found.`);
   }
@@ -627,7 +627,7 @@ export async function createQAInspectionInSupabase(payload: {
 
   // Update Production Job stage to 'qa' if currently in finishing
   if (job.stage === "finishing" || job.stage === "stitching") {
-    await updateProductionJobInSupabase(payload.productionJobId, { stage: "qa", status: "in_production" });
+    await updateProductionJobInDB(payload.productionJobId, { stage: "qa", status: "in_production" });
   }
 
   // Audit timeline event
@@ -668,7 +668,7 @@ export async function createQAInspectionInSupabase(payload: {
 /**
  * Add a classified defect to a QA Inspection
  */
-export async function addDefectToQAInspectionInSupabase(payload: {
+export async function addDefectToQAInspectionInDB(payload: {
   qaInspectionId: string;
   defectCode: string;
   defectName: string;
@@ -683,7 +683,7 @@ export async function addDefectToQAInspectionInSupabase(payload: {
     throw new Error("Defect quantity must be greater than zero.");
   }
 
-  const insp = await getQAInspectionByIdFromSupabase(payload.qaInspectionId);
+  const insp = await getQAInspectionByIdFromDB(payload.qaInspectionId);
   if (!insp) {
     throw new Error(`QA Inspection '${payload.qaInspectionId}' not found.`);
   }
@@ -714,30 +714,30 @@ export async function addDefectToQAInspectionInSupabase(payload: {
   else if (payload.severity === "MAJOR") maj += payload.quantity;
   else min += payload.quantity;
 
-  await updateQAInspectionInSupabase(payload.qaInspectionId, {
+  await updateQAInspectionInDB(payload.qaInspectionId, {
     criticalDefects: crit,
     majorDefects: maj,
     minorDefects: min,
   });
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return newDefect;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const row = mapQADefectToRow(newDefect);
     delete row.id;
 
-    const { data, error } = await supabase.from("qa_defects").insert(row).select().single();
+    const { data, error } = await database.from("qa_defects").insert(row).select().single();
     if (error || !data) {
-      console.warn("Supabase defect insert warning:", error?.message);
+      console.warn("Database defect insert warning:", error?.message);
       return newDefect;
     }
 
     return mapRowToQADefect(data);
   } catch (err) {
-    console.error("Failed to insert defect in Supabase:", err);
+    console.error("Failed to insert defect in Database:", err);
     return newDefect;
   }
 }
@@ -745,7 +745,7 @@ export async function addDefectToQAInspectionInSupabase(payload: {
 /**
  * Update QA Inspection
  */
-export async function updateQAInspectionInSupabase(
+export async function updateQAInspectionInDB(
   id: string,
   updates: Partial<QAInspectionRecord>
 ): Promise<QAInspectionRecord> {
@@ -765,16 +765,16 @@ export async function updateQAInspectionInSupabase(
     throw new Error(`QA inspection '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapQAInspectionToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("qa_inspections")
       .update(rowUpdates)
       .eq("id", id)
@@ -782,13 +782,13 @@ export async function updateQAInspectionInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase update error for qa_inspections:", error?.message);
+      console.warn("Database update error for qa_inspections:", error?.message);
       return updatedRecord;
     }
 
     return mapRowToQAInspection(data);
   } catch (err) {
-    console.error("Failed to update qa_inspection in Supabase:", err);
+    console.error("Failed to update qa_inspection in Database:", err);
     return updatedRecord;
   }
 }
@@ -796,7 +796,7 @@ export async function updateQAInspectionInSupabase(
 /**
  * Submit & evaluate final QA Inspection AQL decision
  */
-export async function submitQAInspectionInSupabase(payload: {
+export async function submitQAInspectionInDB(payload: {
   inspectionId: string;
   inspectedQuantity: number;
   passedQuantity: number;
@@ -805,7 +805,7 @@ export async function submitQAInspectionInSupabase(payload: {
   notes?: string;
   actor?: string;
 }): Promise<QAInspectionRecord> {
-  const insp = await getQAInspectionByIdFromSupabase(payload.inspectionId);
+  const insp = await getQAInspectionByIdFromDB(payload.inspectionId);
   if (!insp) {
     throw new Error(`QA Inspection '${payload.inspectionId}' not found.`);
   }
@@ -851,7 +851,7 @@ export async function submitQAInspectionInSupabase(payload: {
 
   const finalStatus: InspectionStatus = result === "passed" ? "passed" : result === "rework_required" ? "rework_required" : "failed";
 
-  const updatedInsp = await updateQAInspectionInSupabase(payload.inspectionId, {
+  const updatedInsp = await updateQAInspectionInDB(payload.inspectionId, {
     inspectedQuantity: inspected,
     passedQuantity: passed,
     rejectedQuantity: rejected,
@@ -865,7 +865,7 @@ export async function submitQAInspectionInSupabase(payload: {
 
   // If rework required, generate traceable rework record
   if (rework > 0 || result === "rework_required") {
-    await createQAReworkRecordInSupabase({
+    await createQAReworkRecordInDB({
       qaInspectionId: insp.id,
       productionJobId: insp.productionJobId,
       quantity: rework || 1,
@@ -889,27 +889,27 @@ export async function submitQAInspectionInSupabase(payload: {
 /**
  * Approve QA Inspection and advance Production Job to 'packed' stage
  */
-export async function approveQAInspectionInSupabase(
+export async function approveQAInspectionInDB(
   inspectionId: string,
   actor: string = "QA Manager"
 ): Promise<QAInspectionRecord> {
-  const insp = await getQAInspectionByIdFromSupabase(inspectionId);
+  const insp = await getQAInspectionByIdFromDB(inspectionId);
   if (!insp) throw new Error("QA inspection not found.");
 
   if (insp.criticalDefects > 0) {
     throw new Error("Cannot approve QA inspection with open Critical defects.");
   }
 
-  const updatedInsp = await updateQAInspectionInSupabase(inspectionId, {
+  const updatedInsp = await updateQAInspectionInDB(inspectionId, {
     status: "approved",
     decision: "approved",
     inspectionResult: "passed",
   });
 
   // Advance parent Production Job to 'packed'
-  const job = await getProductionJobByIdFromSupabase(insp.productionJobId);
+  const job = await getProductionJobByIdFromDB(insp.productionJobId);
   if (job) {
-    await updateProductionJobInSupabase(insp.productionJobId, {
+    await updateProductionJobInDB(insp.productionJobId, {
       stage: "packed",
       status: "in_production",
       totalQaPassedQuantity: (job.totalQaPassedQuantity || 0) + (insp.passedQuantity || job.plannedQuantity),
@@ -931,15 +931,15 @@ export async function approveQAInspectionInSupabase(
 /**
  * Fail QA Inspection permanently
  */
-export async function failQAInspectionInSupabase(
+export async function failQAInspectionInDB(
   inspectionId: string,
   actor: string = "QA Manager",
   reason: string = "Defects exceeded AQL acceptance limits."
 ): Promise<QAInspectionRecord> {
-  const insp = await getQAInspectionByIdFromSupabase(inspectionId);
+  const insp = await getQAInspectionByIdFromDB(inspectionId);
   if (!insp) throw new Error("QA inspection not found.");
 
-  const updatedInsp = await updateQAInspectionInSupabase(inspectionId, {
+  const updatedInsp = await updateQAInspectionInDB(inspectionId, {
     status: "failed",
     decision: "rejected",
     inspectionResult: "failed",
@@ -947,7 +947,7 @@ export async function failQAInspectionInSupabase(
   });
 
   // Hold parent Production Job
-  await updateProductionJobInSupabase(insp.productionJobId, {
+  await updateProductionJobInDB(insp.productionJobId, {
     status: "on_hold",
   });
 
@@ -965,7 +965,7 @@ export async function failQAInspectionInSupabase(
 /**
  * Create QA Rework Record
  */
-export async function createQAReworkRecordInSupabase(payload: {
+export async function createQAReworkRecordInDB(payload: {
   qaInspectionId: string;
   productionJobId: string;
   bundleId?: string;
@@ -995,24 +995,24 @@ export async function createQAReworkRecordInSupabase(payload: {
   const local = getLocalQARework();
   setLocalQARework([newRework, ...local]);
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return newRework;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const row = mapQAReworkToRow(newRework);
     delete row.id;
 
-    const { data, error } = await supabase.from("qa_rework_records").insert(row).select().single();
+    const { data, error } = await database.from("qa_rework_records").insert(row).select().single();
     if (error || !data) {
-      console.warn("Supabase rework insert warning:", error?.message);
+      console.warn("Database rework insert warning:", error?.message);
       return newRework;
     }
 
     return mapRowToQARework(data);
   } catch (err) {
-    console.error("Failed to insert rework in Supabase:", err);
+    console.error("Failed to insert rework in Database:", err);
     return newRework;
   }
 }
@@ -1020,20 +1020,20 @@ export async function createQAReworkRecordInSupabase(payload: {
 /**
  * Fetch all QA Rework records
  */
-export async function getQAReworkRecordsFromSupabase(productionJobId?: string): Promise<QAReworkRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getQAReworkRecordsFromDB(productionJobId?: string): Promise<QAReworkRecord[]> {
+  if (!isDatabaseConfigured()) {
     const local = getLocalQARework();
     return productionJobId ? local.filter((r) => r.productionJobId === productionJobId) : local;
   }
 
   try {
-    const supabase = createClient();
-    let query = supabase.from("qa_rework_records").select("*").order("created_at", { ascending: false });
+    const database = createClient();
+    let query = database.from("qa_rework_records").select("*").order("created_at", { ascending: false });
     if (productionJobId) query = query.eq("production_job_id", productionJobId);
 
     const { data, error } = await query;
     if (error) {
-      console.warn("Supabase rework fetch warning:", error.message);
+      console.warn("Database rework fetch warning:", error.message);
       const local = getLocalQARework();
       return productionJobId ? local.filter((r) => r.productionJobId === productionJobId) : local;
     }
@@ -1049,7 +1049,7 @@ export async function getQAReworkRecordsFromSupabase(productionJobId?: string): 
 /**
  * Update QA Rework Record (e.g. Complete rework)
  */
-export async function updateQAReworkRecordInSupabase(
+export async function updateQAReworkRecordInDB(
   id: string,
   updates: Partial<QAReworkRecord>
 ): Promise<QAReworkRecord> {
@@ -1069,16 +1069,16 @@ export async function updateQAReworkRecordInSupabase(
     throw new Error(`QA Rework record '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapQAReworkToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("qa_rework_records")
       .update(rowUpdates)
       .eq("id", id)
@@ -1086,7 +1086,7 @@ export async function updateQAReworkRecordInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase rework update warning:", error?.message);
+      console.warn("Database rework update warning:", error?.message);
       return updatedRecord;
     }
 
@@ -1100,10 +1100,10 @@ export async function updateQAReworkRecordInSupabase(
 /**
  * Fetch QA Queue: active jobs ready for or currently in QA
  */
-export async function getQAQueueFromSupabase(): Promise<QAQueueItem[]> {
+export async function getQAQueueFromDB(): Promise<QAQueueItem[]> {
   const [jobs, inspections] = await Promise.all([
-    getProductionJobsFromSupabase(),
-    getQAInspectionsFromSupabase(),
+    getProductionJobsFromDB(),
+    getQAInspectionsFromDB(),
   ]);
 
   const candidateJobs = jobs.filter((j) => !j.isArchived && (j.stage === "qa" || j.stage === "finishing" || j.totalFinishedQuantity > 0));
@@ -1128,10 +1128,10 @@ export async function getQAQueueFromSupabase(): Promise<QAQueueItem[]> {
 /**
  * Calculate live QA Floor KPIs strictly from database
  */
-export async function getQAKPIsFromSupabase(): Promise<QAKPIData> {
+export async function getQAKPIsFromDB(): Promise<QAKPIData> {
   const [inspections, reworkList] = await Promise.all([
-    getQAInspectionsFromSupabase(),
-    getQAReworkRecordsFromSupabase(),
+    getQAInspectionsFromDB(),
+    getQAReworkRecordsFromDB(),
   ]);
 
   if (inspections.length === 0) {

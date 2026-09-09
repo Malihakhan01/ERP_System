@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Phase 2.6: QA & AQL Inspection Module
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — PHASE 2.6 QA & AQL INSPECTION TEST SUITE");
@@ -37,9 +37,9 @@ try {
   console.log("Reading from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -93,13 +93,13 @@ async function runTests() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 2: Supabase persistence and storage
+    // TEST 2: Database persistence and storage
     // -------------------------------------------------------------------------
     const qaStore = [testInsp];
     const retrieved = qaStore.find((i) => i.id === testInsp.id);
     assert(
       retrieved && retrieved.inspectionNumber === testInspNumber,
-      "2. QA inspection record persists in memory / Supabase schema repository",
+      "2. QA inspection record persists in memory / Database schema repository",
       { id: retrieved?.id, number: retrieved?.inspectionNumber }
     );
 
@@ -318,33 +318,33 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 21: Existing Production module contracts intact
     // -------------------------------------------------------------------------
-    const prodDbExists = fs.existsSync("lib/supabase/production-db.ts");
+    const prodDbExists = fs.existsSync("lib/services/production-db.ts");
     const prodPageExists = fs.existsSync("app/(dashboard)/production/page.tsx");
     assert(prodDbExists && prodPageExists, "21. Existing Production core contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 22: Existing Stitching module contracts intact
     // -------------------------------------------------------------------------
-    const prodDbCode = fs.readFileSync("lib/supabase/production-db.ts", "utf-8");
+    const prodDbCode = fs.readFileSync("lib/services/production-db.ts", "utf-8");
     assert(prodDbCode.includes("operator_production_logs"), "22. Existing Stitching bundle lifecycle & piece-rate logs verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 23: Existing Finishing module contracts intact
     // -------------------------------------------------------------------------
-    const finishingDbExists = fs.existsSync("lib/supabase/finishing-db.ts");
+    const finishingDbExists = fs.existsSync("lib/services/finishing-db.ts");
     assert(finishingDbExists, "23. Existing Finishing & Washing management contracts verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 24: Existing Tracking module contracts intact
     // -------------------------------------------------------------------------
-    const trackingDbExists = fs.existsSync("lib/supabase/tracking-db.ts");
+    const trackingDbExists = fs.existsSync("lib/services/tracking-db.ts");
     const trackingPageExists = fs.existsSync("app/(dashboard)/tracking/page.tsx");
     assert(trackingDbExists && trackingPageExists, "24. Existing Tracking 9-gate milestone system verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 25: Relational QA Schema verified in schema.sql
     // -------------------------------------------------------------------------
-    const schemaSql = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schemaSql = fs.readFileSync("database/schema.sql", "utf-8");
     const hasQAInspections = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.qa_inspections");
     const hasQADefects = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.qa_defects");
     const hasQARework = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.qa_rework_records");

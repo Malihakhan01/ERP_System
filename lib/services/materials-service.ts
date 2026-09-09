@@ -21,7 +21,7 @@ export interface RawMaterial {
 
 export const MATERIALS_STORAGE_KEY = "factoryos_raw_materials";
 
-export async function getMaterialsFromSupabase(): Promise<RawMaterial[]> {
+export async function getMaterialsFromDB(): Promise<RawMaterial[]> {
   try {
     const res = await fetch("/api/materials");
     const json = await res.json();
@@ -44,7 +44,7 @@ export async function getMaterialsFromSupabase(): Promise<RawMaterial[]> {
   return [];
 }
 
-export async function createMaterialInSupabase(material: RawMaterial): Promise<RawMaterial> {
+export async function createMaterialInDB(material: RawMaterial): Promise<RawMaterial> {
   try {
     const res = await fetch("/api/materials", {
       method: "POST",
@@ -71,7 +71,7 @@ export async function createMaterialInSupabase(material: RawMaterial): Promise<R
   return material;
 }
 
-export async function updateMaterialInSupabase(material: RawMaterial): Promise<RawMaterial> {
+export async function updateMaterialInDB(material: RawMaterial): Promise<RawMaterial> {
   try {
     await fetch(`/api/materials/${material.id}`, {
       method: "PUT",
@@ -94,7 +94,7 @@ export async function updateMaterialInSupabase(material: RawMaterial): Promise<R
   return material;
 }
 
-export async function deleteMaterialInSupabase(id: string, materialCode?: string): Promise<boolean> {
+export async function deleteMaterialInDB(id: string, materialCode?: string): Promise<boolean> {
   try {
     await fetch(`/api/materials/${id}`, {
       method: "DELETE",

@@ -32,27 +32,27 @@ import {
   Check,
 } from "lucide-react";
 import {
-  getProductionLinesFromSupabase,
-  createProductionLineInSupabase,
-  updateProductionLineInSupabase,
-  toggleProductionLineStatusInSupabase,
-  allocateJobToLineInSupabase,
+  getProductionLinesFromDB,
+  createProductionLineInDB,
+  updateProductionLineInDB,
+  toggleProductionLineStatusInDB,
+  allocateJobToLineInDB,
   getBundlesForJob,
   getAllActiveBundles,
   issueBundleToOperator,
   recordOperatorProductionOutput,
   getOperatorProductionLogsForJob,
   getOperatorProductionEarningsForMonth,
-  getFloorMetricsFromSupabase,
+  getFloorMetricsFromDB,
   getProductionTimelineForJob,
-  getProductionJobsFromSupabase,
+  getProductionJobsFromDB,
   ProductionLineRecord,
   ProductionBundleRecord,
   ProductionJobRecord,
   OperatorProductionLogRecord,
   ProductionTimelineRecord,
 } from "@/lib/services/production-service";
-import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
+import { getEmployeesFromDB } from "@/lib/services/employees-service";
 import type { EmployeeRecord } from "@/lib/employees-engine";
 
 interface TestResult {
@@ -119,7 +119,7 @@ export default function StitchingIntegrationTestPage() {
       name: "1. Stitching Line Setup & Fetch",
       category: "Line Master",
       status: "idle",
-      message: "Ready to test retrieving real stitching lines from Supabase.",
+      message: "Ready to test retrieving real stitching lines from Database.",
     },
     {
       id: "prevent_duplicate_line",
@@ -179,7 +179,7 @@ export default function StitchingIntegrationTestPage() {
     },
     {
       id: "realtime_floor_kpis",
-      name: "10. Real-Time Supabase Floor KPIs",
+      name: "10. Real-Time Database Floor KPIs",
       category: "Floor KPIs",
       status: "idle",
       message: "Verify all floor metrics strictly reflect database state with zero fallback.",
@@ -190,11 +190,11 @@ export default function StitchingIntegrationTestPage() {
     setLoadingInitial(true);
     try {
       const [l, emp, j, bnds, met] = await Promise.all([
-        getProductionLinesFromSupabase(),
-        getEmployeesFromSupabase(),
-        getProductionJobsFromSupabase(),
+        getProductionLinesFromDB(),
+        getEmployeesFromDB(),
+        getProductionJobsFromDB(),
         getAllActiveBundles(),
-        getFloorMetricsFromSupabase(),
+        getFloorMetricsFromDB(),
       ]);
       setLines(l);
       setEmployees(emp);
@@ -239,7 +239,7 @@ export default function StitchingIntegrationTestPage() {
       return;
     }
     try {
-      const created = await createProductionLineInSupabase({
+      const created = await createProductionLineInDB({
         lineCode: newLineCode.trim(),
         lineName: newLineName.trim(),
         department: "Stitching",
@@ -247,7 +247,7 @@ export default function StitchingIntegrationTestPage() {
         dailyTargetCapacity: parseInt(newLineCapacity, 10) || 650,
         isActive: true,
       });
-      success(`Stitching Line ${created.lineName} (${created.lineCode}) created in Supabase!`);
+      success(`Stitching Line ${created.lineName} (${created.lineCode}) created in Database!`);
       setNewLineCode("");
       setNewLineName("");
       await loadInitialData();
@@ -259,7 +259,7 @@ export default function StitchingIntegrationTestPage() {
   // Manual Toggle Line Status
   const handleToggleLine = async (line: ProductionLineRecord) => {
     try {
-      await toggleProductionLineStatusInSupabase(line.id, !line.isActive);
+      await toggleProductionLineStatusInDB(line.id, !line.isActive);
       success(`Line ${line.lineName} is now ${!line.isActive ? "ACTIVE" : "INACTIVE"}.`);
       await loadInitialData();
     } catch (err: any) {
@@ -274,7 +274,7 @@ export default function StitchingIntegrationTestPage() {
       return;
     }
     try {
-      const alloc = await allocateJobToLineInSupabase({
+      const alloc = await allocateJobToLineInDB({
         productionJobId: selectedJobId,
         lineCode: selectedLineCode,
         allocatedOperators: parseInt(allocOperators, 10) || 24,
@@ -362,11 +362,11 @@ export default function StitchingIntegrationTestPage() {
     const t0 = performance.now();
     updateTestStatus("fetch_lines", { status: "running", message: "Fetching stitching lines..." });
     try {
-      const linesList = await getProductionLinesFromSupabase();
+      const linesList = await getProductionLinesFromDB();
       setLines(linesList);
       updateTestStatus("fetch_lines", {
         status: "pass",
-        message: `Successfully fetched ${linesList.length} production lines from Supabase.`,
+        message: `Successfully fetched ${linesList.length} production lines from Database.`,
         details: { count: linesList.length, lines: linesList.map((l) => l.lineCode) },
         durationMs: Math.round(performance.now() - t0),
       });
@@ -386,11 +386,11 @@ export default function StitchingIntegrationTestPage() {
     const t0 = performance.now();
     updateTestStatus("prevent_duplicate_line", { status: "running", message: "Attempting duplicate line insertion..." });
     try {
-      const currentLines = await getProductionLinesFromSupabase();
+      const currentLines = await getProductionLinesFromDB();
       const testCode = currentLines.length > 0 ? currentLines[0].lineCode : "line_1";
       let prevented = false;
       try {
-        await createProductionLineInSupabase({
+        await createProductionLineInDB({
           lineCode: testCode,
           lineName: "Duplicate Test Line",
           department: "Stitching",
@@ -452,7 +452,7 @@ export default function StitchingIntegrationTestPage() {
       <div className="space-y-6 p-6">
         <PageHeader
           title="Phase 2.4: Stitching Line & Floor Tracking Interactive Test Studio"
-          description="Direct Supabase integration workbench to manually test Stitching Lines, Bundle Lifecycles, Operator Output, Piece Rates, and Real-Time Floor KPIs."
+          description="Direct Database integration workbench to manually test Stitching Lines, Bundle Lifecycles, Operator Output, Piece Rates, and Real-Time Floor KPIs."
           actions={
             <div className="flex items-center gap-3">
               <Button
@@ -545,7 +545,7 @@ export default function StitchingIntegrationTestPage() {
                   <Shirt className="h-5 w-5 text-primary" />
                   <h3 className="text-sm font-semibold text-slate-200">1. Stitching Line Setup & Master</h3>
                 </div>
-                <Badge variant="primary">Supabase Table: production_lines</Badge>
+                <Badge variant="primary">Database Table: production_lines</Badge>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -1,5 +1,5 @@
 // types/user.ts
-// User and RBAC types — prepared for Supabase Auth integration
+// User and RBAC types — prepared for Database Auth integration
 
 export type UserRole =
   | "super_admin"
@@ -45,6 +45,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 /** Permission modules — used for future RBAC checks */
 export type PermissionModule =
   | "dashboard"
+  | "portal"
   | "products"
   | "materials"
   | "purchases"

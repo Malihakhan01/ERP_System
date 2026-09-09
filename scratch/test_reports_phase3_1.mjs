@@ -347,9 +347,9 @@ runTest(
 
 // 20. Zero mock/demo datasets in reports repository
 runTest(
-  "20. Verified: lib/supabase/reports-db.ts contains zero mock/demo datasets",
+  "20. Verified: lib/services/reports-db.ts contains zero mock/demo datasets",
   () => {
-    const content = fs.readFileSync("lib/supabase/reports-db.ts", "utf-8");
+    const content = fs.readFileSync("lib/services/reports-db.ts", "utf-8");
     assert(!content.includes("INITIAL_"));
     assert(!content.includes("MOCK_"));
     assert(!content.includes("FALLBACK_"));
@@ -358,17 +358,17 @@ runTest(
   { zeroMockData: true }
 );
 
-// 21. Supabase PostgreSQL source of truth
+// 21. Database PostgreSQL source of truth
 runTest(
-  "21. Verified: Supabase PostgreSQL is the primary authoritative source of truth in reports-db.ts",
+  "21. Verified: Database PostgreSQL is the primary authoritative source of truth in reports-db.ts",
   () => {
-    const content = fs.readFileSync("lib/supabase/reports-db.ts", "utf-8");
+    const content = fs.readFileSync("lib/services/reports-db.ts", "utf-8");
     assert(content.includes("from(\"production_jobs\")"));
     assert(content.includes("from(\"raw_materials\")"));
     assert(content.includes("from(\"invoices\")"));
     assert(content.includes("from(\"orders\")"));
   },
-  { supabaseConfigured: true }
+  { databaseConfigured: true }
 );
 
 // 22. CSV export generation utility
@@ -419,7 +419,7 @@ runTest(
 runTest(
   "25. Cross-module schema integrity verified (production_jobs -> orders -> clients -> invoices -> dispatch_records)",
   () => {
-    const schema = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schema = fs.readFileSync("database/schema.sql", "utf-8");
     assert(schema.includes("public.production_jobs"));
     assert(schema.includes("public.orders"));
     assert(schema.includes("public.clients"));

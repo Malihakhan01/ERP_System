@@ -56,10 +56,10 @@ import {
 } from "@/lib/clients-engine";
 import { CURRENCY_SYMBOLS } from "@/lib/costing-engine";
 import {
-  getClientsFromSupabase,
-  createClientInSupabase,
-  updateClientInSupabase,
-  deleteClientInSupabase,
+  getClientsFromDB,
+  createClientInDB,
+  updateClientInDB,
+  deleteClientInDB,
 } from "@/lib/services/clients-service";
 
 const STATUS_CONFIG: Record<
@@ -135,7 +135,7 @@ export default function ClientsPage() {
   const loadClients = React.useCallback(async (showToast = false) => {
     setLoadingClients(true);
     try {
-      const data = await getClientsFromSupabase();
+      const data = await getClientsFromDB();
       if (data && data.length > 0) {
         setLocalOverride(data);
       }
@@ -242,7 +242,7 @@ export default function ClientsPage() {
   const [preferredCategories, setPreferredCategories] = React.useState("Hoodies, T-Shirts, Joggers");
 
   // Commercial Info
-  const [currency, setCurrency] = React.useState<ClientCurrency>("USD");
+  const [currency, setCurrency] = React.useState<ClientCurrency>("PKR");
   const [paymentTerms, setPaymentTerms] = React.useState("30% Advance TT / 70% before BL Release");
   const [incoterms, setIncoterms] = React.useState("FOB Sialkot");
   const [creditLimit, setCreditLimit] = React.useState("50000");
@@ -305,7 +305,7 @@ export default function ClientsPage() {
     setAnnualEstimatedVolume("25000");
     setPreferredCategories("Hoodies, T-Shirts, Joggers");
 
-    setCurrency("USD");
+    setCurrency("PKR");
     setPaymentTerms("30% Advance TT / 70% before BL Release");
     setIncoterms("FOB Sialkot");
     setCreditLimit("50000");
@@ -698,14 +698,14 @@ export default function ClientsPage() {
 
       const updated = [clientToSave, ...clients];
       saveClients(updated);
-      createClientInSupabase(clientToSave).catch((err) => console.error(err));
+      createClientInDB(clientToSave).catch((err) => console.error(err));
       success("Client Account Created", {
         description: `Successfully onboarded ${clientToSave.companyName} (${clientToSave.clientId}).`,
       });
     }
 
     if (editingInternalId && activeClient) {
-      updateClientInSupabase(clientToSave).catch((err) => console.error(err));
+      updateClientInDB(clientToSave).catch((err) => console.error(err));
     }
 
     setSelectedClientId(clientToSave.id);
@@ -741,7 +741,7 @@ export default function ClientsPage() {
 
     const updatedList = clients.map((c) => (c.id === client.id ? updatedClient : c));
     saveClients(updatedList);
-    updateClientInSupabase(updatedClient).catch((err) => console.error(err));
+    updateClientInDB(updatedClient).catch((err) => console.error(err));
     success("Client Status Updated", {
       description: `${client.companyName} status changed to ${STATUS_CONFIG[newStatus]?.label}.`,
     });
@@ -762,7 +762,7 @@ export default function ClientsPage() {
     if (!clientToDelete) return;
     const updated = clients.filter((c) => c.id !== clientToDelete.id);
     saveClients(updated);
-    deleteClientInSupabase(clientToDelete.id, clientToDelete.clientId).catch((err) => console.error(err));
+    deleteClientInDB(clientToDelete.id, clientToDelete.clientId).catch((err) => console.error(err));
     success("Client Account Removed", {
       description: `${clientToDelete.companyName} (${clientToDelete.clientId}) was permanently deleted.`,
     });
@@ -783,7 +783,7 @@ export default function ClientsPage() {
     };
     const updated = clients.map((c) => (c.id === archiveModalClient.id ? updatedClient : c));
     saveClients(updated);
-    updateClientInSupabase(updatedClient).catch((err) => console.error(err));
+    updateClientInDB(updatedClient).catch((err) => console.error(err));
     success("Client Archived", {
       description: `${archiveModalClient.companyName} has been archived. Linked orders and invoices remain historically preserved.`,
     });
@@ -1116,10 +1116,10 @@ export default function ClientsPage() {
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as ClientCurrency)}
                       options={[
+                        { value: "PKR", label: "PKR (Rs) — Pakistani Rupee" },
                         { value: "USD", label: "USD ($) — US Dollar" },
                         { value: "EUR", label: "EUR (€) — Euro" },
                         { value: "GBP", label: "GBP (£) — British Pound" },
-                        { value: "PKR", label: "PKR (₨) — Pakistani Rupee" },
                         { value: "AED", label: "AED (AED) — UAE Dirham" },
                       ]}
                     />
@@ -1145,8 +1145,8 @@ export default function ClientsPage() {
                       value={incoterms}
                       onChange={(e) => setIncoterms(e.target.value)}
                       options={[
-                        { value: "FOB Sialkot", label: "FOB Sialkot / Lahore" },
-                        { value: "FOB Karachi Port", label: "FOB Karachi Port" },
+                        { value: "FOB Sialkot", label: "FOB Sialkot Dry Port (SDPT)" },
+                        { value: "FOB Sialkot Dry Port", label: "FOB Sialkot Dry Port / Sambrial" },
                         { value: "CIF London", label: "CIF Destination Port" },
                         { value: "DDP Warehouse", label: "DDP Buyer Warehouse" },
                         { value: "EXW Factory", label: "EXW Sialkot Factory" },
@@ -1417,7 +1417,7 @@ export default function ClientsPage() {
             {/* Top 6 Summary KPI Cards */}
             {(() => {
               const metrics = computeClientMetrics(activeClient);
-              const currSymbol = CURRENCY_SYMBOLS[activeClient.commercialInfo.currency] || "$";
+              const currSymbol = CURRENCY_SYMBOLS[activeClient.commercialInfo.currency] || "Rs ";
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -2031,7 +2031,7 @@ export default function ClientsPage() {
               />
               <StatCard
                 label="Total Order Value"
-                value={`$${(totalPortfolioOrderValue / 1000).toFixed(1)}k`}
+                value={`Rs ${(totalPortfolioOrderValue / 1000).toFixed(1)}k`}
                 sub="Cumulative buyer contracts"
                 icon={<DollarSign className="h-5 w-5" />}
                 iconColor="bg-purple-50 text-purple-600"

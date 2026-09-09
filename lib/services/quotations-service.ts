@@ -4,7 +4,7 @@
 import type { QuotationRecord } from "../quotations-engine";
 import { QUOTATION_STORAGE_KEY, INITIAL_QUOTATIONS } from "../quotations-engine";
 
-export async function getQuotationsFromSupabase(): Promise<QuotationRecord[]> {
+export async function getQuotationsFromDB(): Promise<QuotationRecord[]> {
   try {
     const res = await fetch("/api/quotations");
     const json = await res.json();
@@ -27,7 +27,7 @@ export async function getQuotationsFromSupabase(): Promise<QuotationRecord[]> {
   return INITIAL_QUOTATIONS;
 }
 
-export async function createQuotationInSupabase(quotation: QuotationRecord): Promise<QuotationRecord> {
+export async function createQuotationInDB(quotation: QuotationRecord): Promise<QuotationRecord> {
   try {
     const res = await fetch("/api/quotations", {
       method: "POST",
@@ -54,7 +54,7 @@ export async function createQuotationInSupabase(quotation: QuotationRecord): Pro
   return quotation;
 }
 
-export async function updateQuotationInSupabase(quotation: QuotationRecord): Promise<QuotationRecord> {
+export async function updateQuotationInDB(quotation: QuotationRecord): Promise<QuotationRecord> {
   try {
     await fetch(`/api/quotations/${quotation.id}`, {
       method: "PUT",
@@ -77,7 +77,7 @@ export async function updateQuotationInSupabase(quotation: QuotationRecord): Pro
   return quotation;
 }
 
-export async function deleteQuotationInSupabase(id: string, quotationNumber?: string): Promise<boolean> {
+export async function deleteQuotationInDB(id: string, quotationNumber?: string): Promise<boolean> {
   try {
     await fetch(`/api/quotations/${id}`, {
       method: "DELETE",

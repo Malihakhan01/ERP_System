@@ -22,6 +22,7 @@ import {
   AlertCircle,
   X,
   KeyRound,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { SidebarMobileToggle } from "./Sidebar";
@@ -29,6 +30,7 @@ import { Breadcrumb, type BreadcrumbItem } from "@/components/ui/Misc";
 import { getClientAuthUser, setClientAuthUser, clearClientAuthUser } from "@/lib/auth/auth-client";
 import { AuthUser, DEMO_USERS } from "@/lib/auth/auth-types";
 import { useToast } from "@/components/ui/Toast";
+import { fetchUnreadChatCount } from "@/lib/services/chat-service";
 
 export interface TopNavProps {
   title: string;
@@ -54,6 +56,7 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
   const [switchLoading, setSwitchLoading] = React.useState(false);
   const [switchError, setSwitchError] = React.useState<string | null>(null);
   const [dbUsersList, setDbUsersList] = React.useState<AuthUser[]>([]);
+  const [chatUnreadCount, setChatUnreadCount] = React.useState(0);
 
   const loadUsers = React.useCallback(() => {
     fetch("/api/auth/users")
@@ -64,6 +67,8 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
         }
       })
       .catch(() => {});
+
+    fetchUnreadChatCount().then((count) => setChatUnreadCount(count));
   }, []);
 
   React.useEffect(() => {
@@ -76,7 +81,16 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
       loadUsers();
     };
     window.addEventListener("factoryos_auth_change", handleAuthChange);
-    return () => window.removeEventListener("factoryos_auth_change", handleAuthChange);
+
+    // Poll unread chat messages every 10s
+    const chatInterval = setInterval(() => {
+      fetchUnreadChatCount().then((count) => setChatUnreadCount(count));
+    }, 10000);
+
+    return () => {
+      window.removeEventListener("factoryos_auth_change", handleAuthChange);
+      clearInterval(chatInterval);
+    };
   }, [loadUsers]);
 
   const handleOpenSwitchModal = (roleKey: string) => {
@@ -103,6 +117,15 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
     setProfileOpen(false);
     setSwitchModalOpen(true);
   };
+
+  React.useEffect(() => {
+    if (!switchModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSwitchModalOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [switchModalOpen]);
 
   const handleVerifyAndSwitch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,8 +250,23 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
         </div>
       </div>
 
-      {/* Right: Notifications & Profile */}
+      {/* Right: Notifications, Chat & Profile */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* ---- Live Chat Button ---- */}
+        <Link
+          href="/chat"
+          className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-erp-border)] bg-[var(--color-erp-surface)] text-[var(--color-erp-text-secondary)] hover:bg-[var(--color-erp-surface-2)] hover:text-blue-600 transition-all cursor-pointer"
+          title="Live Team Chat & Floor Messaging"
+          aria-label="Live Team Chat"
+        >
+          <MessageSquare className="h-4 w-4" />
+          {chatUnreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+              {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
+            </span>
+          )}
+        </Link>
+
         {/* ---- Notifications Popover ---- */}
         <div ref={notifRef} className="relative">
           <button
@@ -445,7 +483,12 @@ export function TopNav({ title, breadcrumbs }: TopNavProps) {
           SECURE ROLE SWITCH PASSWORD VERIFICATION MODAL (PORTAL)
           ============================================================ */}
       {mounted && switchModalOpen && targetRole && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto min-h-screen animate-in fade-in duration-150">
+        <div
+          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto min-h-screen animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSwitchModalOpen(false);
+          }}
+        >
           <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150 text-left my-auto">
             <button
               type="button"

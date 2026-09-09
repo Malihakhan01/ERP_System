@@ -194,7 +194,7 @@ export function Sidebar() {
             </p>
             <p className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1">
               <Radio className="h-2.5 w-2.5 text-blue-400 shrink-0" />
-              <span className="truncate">{user.plant || "Unit 1 - Korangi Garment Hub"}</span>
+              <span className="truncate">{user.plant || "Unit 1 - Small Industrial Estate, Sialkot"}</span>
             </p>
           </div>
         </div>

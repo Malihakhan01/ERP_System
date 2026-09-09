@@ -38,9 +38,9 @@ import {
   EMPLOYEE_STORAGE_KEY,
 } from "@/lib/employees-engine";
 import {
-  createEmployeeInSupabase,
-  updateEmployeeInSupabase,
-  getEmployeesFromSupabase,
+  createEmployeeInDB,
+  updateEmployeeInDB,
+  getEmployeesFromDB,
 } from "@/lib/services/employees-service";
 
 const STATUS_BADGE_CONFIG: Record<string, { label: string; variant: "success" | "warning" | "danger" | "default" }> = {
@@ -93,7 +93,7 @@ export function EmployeeForm({
       } catch (e) {
         console.error(e);
       }
-      getEmployeesFromSupabase().then((emps) => {
+      getEmployeesFromDB().then((emps) => {
         if (emps && emps.length > 0) setAllEmployees(emps);
       }).catch(console.error);
     }
@@ -112,7 +112,27 @@ export function EmployeeForm({
     formData.personalInfo?.phoneCountryCode || "+92"
   );
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+  const [successBanner, setSuccessBanner] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // In create mode: fetch the real next sequential employee number from MySQL database
+  React.useEffect(() => {
+    if (mode === "create") {
+      fetch("/api/employees/next-id")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.nextEmployeeNumber) {
+            setFormData((prev) => ({
+              ...prev,
+              employeeNumber: data.nextEmployeeNumber,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch next employee ID from MySQL:", err);
+        });
+    }
+  }, [mode]);
 
   // Document attachments
   const [photoFile, setPhotoFile] = React.useState<File | null>(null);
@@ -285,26 +305,44 @@ export function EmployeeForm({
         ],
       };
 
-      const updatedList = [createdRecord, ...allEmployees.filter((e) => e.id !== createdRecord.id)];
+      const saveResult = await createEmployeeInDB(createdRecord);
+      if (!saveResult.success) {
+        setIsSubmitting(false);
+        const errMsg = saveResult.message || "Failed to register employee in database.";
+        setFormErrors({ general: errMsg });
+        toast({
+          type: "error",
+          message: "Employee Registration Failed",
+          description: errMsg,
+        });
+        return;
+      }
+
+      const finalRecord = saveResult.data || createdRecord;
+      const updatedList = [finalRecord, ...allEmployees.filter((e) => e.id !== finalRecord.id)];
       try {
         localStorage.setItem(EMPLOYEE_STORAGE_KEY, JSON.stringify(updatedList));
         window.dispatchEvent(new Event("storage"));
       } catch (e) {
         console.error(e);
       }
-      createEmployeeInSupabase(createdRecord).catch(console.error);
 
+      setSuccessBanner(`${finalRecord.employeeNumber} — ${finalRecord.personalInfo.fullName} registered successfully.`);
       toast({
         type: "success",
         message: "Employee Registered",
-        description: `${createdRecord.employeeNumber} — ${createdRecord.personalInfo.fullName} registered successfully.`,
+        description: `${finalRecord.employeeNumber} — ${finalRecord.personalInfo.fullName} registered successfully.`,
       });
 
-      if (onSave) {
-        onSave(createdRecord);
-      } else {
-        router.push("/employees");
-      }
+      setTimeout(() => {
+        setIsSubmitting(false);
+        if (onSave) {
+          onSave(finalRecord);
+        } else {
+          router.push("/employees");
+        }
+      }, 500);
+      return;
     } else {
       let updatedRecord: EmployeeRecord = {
         ...candidateRecord,
@@ -342,28 +380,45 @@ export function EmployeeForm({
         "Core employee details and profile records updated."
       );
 
-      const updatedList = allEmployees.map((e) => (e.id === updatedRecord.id ? updatedRecord : e));
+      const saveResult = await updateEmployeeInDB(updatedRecord);
+      if (!saveResult.success) {
+        setIsSubmitting(false);
+        const errMsg = saveResult.message || "Failed to update employee.";
+        setFormErrors({ general: errMsg });
+        toast({
+          type: "error",
+          message: "Update Failed",
+          description: errMsg,
+        });
+        return;
+      }
+
+      const finalRecord = saveResult.data || updatedRecord;
+      const updatedList = allEmployees.map((e) => (e.id === finalRecord.id ? finalRecord : e));
       try {
         localStorage.setItem(EMPLOYEE_STORAGE_KEY, JSON.stringify(updatedList));
         window.dispatchEvent(new Event("storage"));
       } catch (e) {
         console.error(e);
       }
-      updateEmployeeInSupabase(updatedRecord).catch(console.error);
 
+      setSuccessBanner(`Employee ${finalRecord.employeeNumber} updated successfully.`);
       toast({
         type: "success",
         message: "Profile Updated",
-        description: `Changes to ${updatedRecord.employeeNumber} saved successfully.`,
+        description: `Changes to ${finalRecord.employeeNumber} saved successfully.`,
       });
 
-      if (onSave) {
-        onSave(updatedRecord);
-      } else {
-        router.push("/employees");
-      }
+      setTimeout(() => {
+        setIsSubmitting(false);
+        if (onSave) {
+          onSave(finalRecord);
+        } else {
+          router.push("/employees");
+        }
+      }, 500);
+      return;
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -426,18 +481,48 @@ export function EmployeeForm({
         </div>
       </div>
 
-      {/* Validation Alert */}
-      {Object.keys(formErrors).length > 0 && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-start gap-3 shadow-xs">
-          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-          <div>
-            <strong className="font-bold text-sm">Please correct the following required fields before saving:</strong>
-            <ul className="list-disc list-inside mt-1.5 space-y-1 text-rose-800">
-              {Object.entries(formErrors).map(([field, msg]) => (
-                <li key={field}>{msg}</li>
-              ))}
-            </ul>
+      {/* Success Alert Banner */}
+      {successBanner && (
+        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 flex items-start gap-3 shadow-sm animate-in fade-in duration-200">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <strong className="font-bold text-sm text-emerald-900">Success!</strong>
+            <p className="mt-0.5 text-emerald-800 font-medium">{successBanner}</p>
           </div>
+        </div>
+      )}
+
+      {/* Validation & Server Error Alert Banner */}
+      {Object.keys(formErrors).length > 0 && (
+        <div className="p-4 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-950 flex items-start gap-3 shadow-sm animate-in fade-in duration-200">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <strong className="font-bold text-sm text-rose-900">
+              {formErrors.general ? "Action Could Not Be Completed" : "Please correct the following fields before saving:"}
+            </strong>
+            {formErrors.general && (
+              <p className="mt-1 font-semibold text-rose-800 text-xs">
+                {formErrors.general}
+              </p>
+            )}
+            {Object.entries(formErrors).filter(([k]) => k !== "general").length > 0 && (
+              <ul className="list-disc list-inside mt-1.5 space-y-1 text-rose-800">
+                {Object.entries(formErrors)
+                  .filter(([k]) => k !== "general")
+                  .map(([field, msg]) => (
+                    <li key={field}>{msg}</li>
+                  ))}
+              </ul>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormErrors({})}
+            className="text-rose-500 hover:text-rose-700 font-bold text-sm ml-2 cursor-pointer"
+            title="Dismiss error"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -598,6 +683,31 @@ export function EmployeeForm({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <FormField
+            label="Employee ID / Number *"
+            error={formErrors.employeeNumber}
+            description="Auto-generated sequential ID from database. Must be unique."
+          >
+            <Input
+              value={formData.employeeNumber}
+              onChange={(e) => {
+                setFormData({
+                  ...formData,
+                  employeeNumber: e.target.value.trim().toUpperCase(),
+                });
+                if (formErrors.employeeNumber) {
+                  setFormErrors((prev) => {
+                    const n = { ...prev };
+                    delete n.employeeNumber;
+                    return n;
+                  });
+                }
+              }}
+              placeholder="e.g. EMP-2026-022"
+              className="font-mono font-bold uppercase tracking-wider"
+            />
+          </FormField>
+
           <FormField label="Department *" error={formErrors.department}>
             <Select
               value={formData.employmentInfo.department}

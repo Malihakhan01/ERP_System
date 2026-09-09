@@ -62,9 +62,10 @@ export interface FormSectionProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  gridClassName?: string;
 }
 
-export function FormSection({ title, description, children, className }: FormSectionProps) {
+export function FormSection({ title, description, children, className, gridClassName }: FormSectionProps) {
   return (
     <div className={cn("space-y-4", className)}>
       <div className="border-b border-[var(--color-erp-border)] pb-3">
@@ -73,7 +74,7 @@ export function FormSection({ title, description, children, className }: FormSec
           <p className="mt-0.5 text-xs text-[var(--color-erp-text-muted)]">{description}</p>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+      <div className={cn(gridClassName || "grid grid-cols-1 gap-4 sm:grid-cols-2")}>{children}</div>
     </div>
   );
 }

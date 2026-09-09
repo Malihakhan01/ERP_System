@@ -55,7 +55,7 @@ export const INITIAL_PRODUCTS: GarmentProduct[] = [
   },
 ];
 
-export async function getProductsFromSupabase(): Promise<GarmentProduct[]> {
+export async function getProductsFromDB(): Promise<GarmentProduct[]> {
   try {
     const res = await fetch("/api/products");
     const json = await res.json();
@@ -78,7 +78,7 @@ export async function getProductsFromSupabase(): Promise<GarmentProduct[]> {
   return INITIAL_PRODUCTS;
 }
 
-export async function createProductInSupabase(product: GarmentProduct): Promise<GarmentProduct> {
+export async function createProductInDB(product: GarmentProduct): Promise<GarmentProduct> {
   try {
     const res = await fetch("/api/products", {
       method: "POST",
@@ -103,7 +103,7 @@ export async function createProductInSupabase(product: GarmentProduct): Promise<
   return product;
 }
 
-export async function updateProductInSupabase(product: GarmentProduct): Promise<GarmentProduct> {
+export async function updateProductInDB(product: GarmentProduct): Promise<GarmentProduct> {
   if (typeof window !== "undefined") {
     try {
       const raw = localStorage.getItem(PRODUCTS_STORAGE_KEY);
@@ -116,7 +116,7 @@ export async function updateProductInSupabase(product: GarmentProduct): Promise<
   return product;
 }
 
-export async function deleteProductInSupabase(id: string, styleCode?: string): Promise<boolean> {
+export async function deleteProductInDB(id: string, styleCode?: string): Promise<boolean> {
   if (typeof window !== "undefined") {
     try {
       const raw = localStorage.getItem(PRODUCTS_STORAGE_KEY);

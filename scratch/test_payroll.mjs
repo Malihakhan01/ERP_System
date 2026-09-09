@@ -15,7 +15,7 @@ import {
 import {
   mapRowToPayrollRun,
   mapRowToPayrollRecordItem,
-} from "../lib/supabase/payroll-db.ts";
+} from "../lib/services/-service.ts";
 
 let passed = 0;
 let failed = 0;

@@ -31,10 +31,10 @@ import {
 import { TechPackSpecSheetModal } from "@/components/products/TechPackSpecSheetModal";
 
 import {
-  getProductsFromSupabase,
-  createProductInSupabase,
-  updateProductInSupabase,
-  deleteProductInSupabase,
+  getProductsFromDB,
+  createProductInDB,
+  updateProductInDB,
+  deleteProductInDB,
   GarmentProduct,
   PRODUCTS_STORAGE_KEY as STORAGE_KEY,
 } from "@/lib/services/products-service";
@@ -90,7 +90,7 @@ export default function ProductsPage() {
   const loadProducts = React.useCallback(async (showToast = false) => {
     setLoading(true);
     try {
-      const data = await getProductsFromSupabase();
+      const data = await getProductsFromDB();
       if (data && data.length > 0) {
         setLocalOverride(data);
       }
@@ -270,7 +270,7 @@ export default function ProductsPage() {
 
     const updated = [newProduct, ...products];
     saveProductsList(updated);
-    createProductInSupabase(newProduct).catch((err) => console.error(err));
+    createProductInDB(newProduct).catch((err) => console.error(err));
 
     success("Product created successfully", {
       description: `${newProduct.styleCode} — ${newProduct.name} has been added to the garment catalog.`,
@@ -284,7 +284,7 @@ export default function ProductsPage() {
     if (!productToDelete) return;
     const updated = products.filter((p) => p.id !== productToDelete.id);
     saveProductsList(updated);
-    deleteProductInSupabase(productToDelete.id, productToDelete.styleCode).catch((err) => console.error(err));
+    deleteProductInDB(productToDelete.id, productToDelete.styleCode).catch((err) => console.error(err));
     success("Product deleted", {
       description: `${productToDelete.styleCode} was removed from the garment catalog.`,
     });

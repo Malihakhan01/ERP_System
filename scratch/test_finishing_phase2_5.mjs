@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Phase 2.5: Finishing Management Backend Integration
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — PHASE 2.5 FINISHING MANAGEMENT TEST SUITE");
@@ -37,9 +37,9 @@ try {
   console.log("Reading from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -87,7 +87,7 @@ async function runTests() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 3: Finishing record persists in Supabase schema
+    // TEST 3: Finishing record persists in Database schema
     // -------------------------------------------------------------------------
     const testFinOp = {
       id: `fin_op_${timestamp}`,
@@ -107,7 +107,7 @@ async function runTests() {
     };
     assert(
       testFinOp.operationNumber === testOpNumber && testFinOp.receivedQuantity === 480,
-      "3. Finishing operation batch structure validated with Supabase relational schema",
+      "3. Finishing operation batch structure validated with Database relational schema",
       { operationNumber: testFinOp.operationNumber, received: testFinOp.receivedQuantity }
     );
 
@@ -330,36 +330,36 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 22: Existing Production workflow remains intact
     // -------------------------------------------------------------------------
-    const prodDbExists = fs.existsSync("lib/supabase/production-db.ts");
+    const prodDbExists = fs.existsSync("lib/services/production-db.ts");
     const prodPageExists = fs.existsSync("app/(dashboard)/production/page.tsx");
     assert(prodDbExists && prodPageExists, "22. Existing Production core contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 23: Existing Stitching workflow remains intact
     // -------------------------------------------------------------------------
-    const prodDbCode = fs.readFileSync("lib/supabase/production-db.ts", "utf-8");
+    const prodDbCode = fs.readFileSync("lib/services/production-db.ts", "utf-8");
     const hasStitchingLogs = prodDbCode.includes("operator_production_logs");
     assert(hasStitchingLogs, "23. Existing Stitching bundle lifecycle & piece-rate logs verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 24: Existing Tracking workflow remains intact
     // -------------------------------------------------------------------------
-    const trackingDbExists = fs.existsSync("lib/supabase/tracking-db.ts");
+    const trackingDbExists = fs.existsSync("lib/services/tracking-db.ts");
     const trackingPageExists = fs.existsSync("app/(dashboard)/tracking/page.tsx");
     assert(trackingDbExists && trackingPageExists, "24. Existing Tracking 9-gate milestone system verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 25: No mock finishing data exists
     // -------------------------------------------------------------------------
-    const finishingDbCode = fs.readFileSync("lib/supabase/finishing-db.ts", "utf-8");
+    const finishingDbCode = fs.readFileSync("lib/services/finishing-db.ts", "utf-8");
     const hasMockFinishing = finishingDbCode.includes("MOCK_FINISHING") || finishingDbCode.includes("DEMO_FINISHING");
     assert(!hasMockFinishing, "25. Verified: Zero mock or demo finishing datasets in repository layer");
 
     // -------------------------------------------------------------------------
     // TEST 26: No localStorage dependency exists as primary source
     // -------------------------------------------------------------------------
-    const hasSupabaseConfig = finishingDbCode.includes("isSupabaseConfigured");
-    assert(hasSupabaseConfig, "26. Supabase PostgreSQL verified as authoritative primary source of truth");
+    const hasDatabaseConfig = finishingDbCode.includes("isDatabaseConfigured");
+    assert(hasDatabaseConfig, "26. Database PostgreSQL verified as authoritative primary source of truth");
 
     // -------------------------------------------------------------------------
     // TEST 27: Finishing defect categories supported
@@ -377,7 +377,7 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 28: Relational finishing schema in schema.sql
     // -------------------------------------------------------------------------
-    const schemaSql = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schemaSql = fs.readFileSync("database/schema.sql", "utf-8");
     const hasFinishingOps = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.finishing_operations");
     const hasFinishingInsps = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.finishing_inspections");
     assert(

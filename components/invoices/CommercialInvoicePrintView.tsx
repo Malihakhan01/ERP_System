@@ -73,8 +73,8 @@ export function CommercialInvoicePrintView({
                 </div>
               </div>
               <p className="text-[10px] text-slate-600 mt-2 max-w-sm leading-relaxed">
-                Plot 42-B, Sector 7-A, Korangi Industrial Area, Karachi - 74900, Pakistan<br />
-                Phone: +92 (21) 3506-8800 | Email: export@factoryos.internal | Web: www.factoryos.internal
+                Plot 42-B, Small Industrial Estate, Daska Road, Sialkot - 51310, Punjab, Pakistan<br />
+                Phone: +92 (52) 355-8800 | Email: export@factoryos.internal | Web: www.factoryos.internal
               </p>
             </div>
 
@@ -151,7 +151,7 @@ export function CommercialInvoicePrintView({
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-slate-500">Port of Loading:</span>
-              <span className="font-bold text-slate-800">Karachi Port (PKBQM / PKQAS)</span>
+              <span className="font-bold text-slate-800">Sialkot Dry Port (Sambrial / SDPT)</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-slate-500">Port of Discharge:</span>
@@ -159,7 +159,7 @@ export function CommercialInvoicePrintView({
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-slate-500">Delivery Terms (Incoterms):</span>
-              <span className="font-bold text-blue-900">{invoice.incoterms || "FOB Karachi / CIF Destination"}</span>
+              <span className="font-bold text-blue-900">{invoice.incoterms || "FOB Sialkot Dry Port / CIF Destination"}</span>
             </div>
           </div>
         </div>
@@ -227,7 +227,7 @@ export function CommercialInvoicePrintView({
             </div>
             <div className="grid grid-cols-3 gap-1">
               <span className="text-slate-500">Branch:</span>
-              <span className="col-span-2 text-slate-800">Korangi Industrial Branch, Karachi, Pakistan</span>
+              <span className="col-span-2 text-slate-800">Small Industrial Estate Branch, Sialkot, Pakistan</span>
             </div>
           </div>
 

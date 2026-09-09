@@ -4,7 +4,7 @@
 import type { InvoiceRecord, PaymentRecord } from "../invoices-engine";
 import { INVOICE_STORAGE_KEY, INITIAL_INVOICES } from "../invoices-engine";
 
-export async function getInvoicesFromSupabase(): Promise<InvoiceRecord[]> {
+export async function getInvoicesFromDB(): Promise<InvoiceRecord[]> {
   try {
     const res = await fetch("/api/invoices");
     const json = await res.json();
@@ -27,7 +27,7 @@ export async function getInvoicesFromSupabase(): Promise<InvoiceRecord[]> {
   return INITIAL_INVOICES;
 }
 
-export async function createInvoiceInSupabase(invoice: InvoiceRecord): Promise<InvoiceRecord> {
+export async function createInvoiceInDB(invoice: InvoiceRecord): Promise<InvoiceRecord> {
   try {
     const res = await fetch("/api/invoices", {
       method: "POST",
@@ -54,7 +54,7 @@ export async function createInvoiceInSupabase(invoice: InvoiceRecord): Promise<I
   return invoice;
 }
 
-export async function updateInvoiceInSupabase(invoice: InvoiceRecord): Promise<InvoiceRecord> {
+export async function updateInvoiceInDB(invoice: InvoiceRecord): Promise<InvoiceRecord> {
   try {
     await fetch(`/api/invoices/${invoice.id}`, {
       method: "PUT",
@@ -77,7 +77,7 @@ export async function updateInvoiceInSupabase(invoice: InvoiceRecord): Promise<I
   return invoice;
 }
 
-export async function recordInvoicePaymentInSupabase(
+export async function recordInvoicePaymentInDB(
   invoiceId: string,
   payment: PaymentRecord,
   updatedInvoice: InvoiceRecord
@@ -104,7 +104,7 @@ export async function recordInvoicePaymentInSupabase(
   return true;
 }
 
-export async function archiveInvoiceInSupabase(id: string): Promise<boolean> {
+export async function archiveInvoiceInDB(id: string): Promise<boolean> {
   try {
     await fetch(`/api/invoices/${id}`, {
       method: "PUT",
@@ -127,7 +127,7 @@ export async function archiveInvoiceInSupabase(id: string): Promise<boolean> {
   return true;
 }
 
-export async function deleteInvoiceInSupabase(id: string, invoiceNumber?: string): Promise<boolean> {
+export async function deleteInvoiceInDB(id: string, invoiceNumber?: string): Promise<boolean> {
   try {
     await fetch(`/api/invoices/${id}`, {
       method: "DELETE",

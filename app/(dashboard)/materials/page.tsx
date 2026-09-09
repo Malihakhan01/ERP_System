@@ -27,10 +27,10 @@ import {
 } from "lucide-react";
 
 import {
-  getMaterialsFromSupabase,
-  createMaterialInSupabase,
-  updateMaterialInSupabase,
-  deleteMaterialInSupabase,
+  getMaterialsFromDB,
+  createMaterialInDB,
+  updateMaterialInDB,
+  deleteMaterialInDB,
   RawMaterial,
   MATERIALS_STORAGE_KEY as STORAGE_KEY,
 } from "@/lib/services/materials-service";
@@ -99,7 +99,7 @@ export default function MaterialsPage() {
   const loadMaterials = React.useCallback(async (showToast = false) => {
     setLoadingMaterials(true);
     try {
-      const data = await getMaterialsFromSupabase();
+      const data = await getMaterialsFromDB();
       if (data && data.length > 0) {
         setLocalOverride(data);
       }
@@ -259,7 +259,7 @@ export default function MaterialsPage() {
 
     const updated = [newMaterial, ...materials];
     saveMaterialsList(updated);
-    createMaterialInSupabase(newMaterial).catch((err) => console.error(err));
+    createMaterialInDB(newMaterial).catch((err) => console.error(err));
 
     success("Material added successfully", {
       description: `${newMaterial.materialCode} — ${newMaterial.name} has been added to the raw materials catalog.`,
@@ -273,7 +273,7 @@ export default function MaterialsPage() {
     if (!materialToDelete) return;
     const updated = materials.filter((m) => m.id !== materialToDelete.id);
     saveMaterialsList(updated);
-    deleteMaterialInSupabase(materialToDelete.id, materialToDelete.materialCode).catch((err) => console.error(err));
+    deleteMaterialInDB(materialToDelete.id, materialToDelete.materialCode).catch((err) => console.error(err));
     success("Material removed", {
       description: `${materialToDelete.materialCode} has been deleted from the catalog.`,
     });

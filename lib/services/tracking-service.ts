@@ -1,10 +1,10 @@
 // lib/services/tracking-service.ts
-// FactoryOS PostgreSQL Supabase Repository for Logistics & Production Tracking Module
+// FactoryOS PostgreSQL Database Repository for Logistics & Production Tracking Module
 
 import { ProductionTimelineRecord, addProductionTimelineEvent } from "./production-service";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -227,7 +227,7 @@ function setLocalTrackingRecords(records: TrackingShipmentRecord[]) {
 }
 
 // -----------------------------------------------------------------------------
-// SUPABASE REPOSITORY METHODS
+// DATABASE REPOSITORY METHODS
 // -----------------------------------------------------------------------------
 
 function mapRowToTrackingRecord(row: any): TrackingShipmentRecord {
@@ -291,9 +291,9 @@ function mapRecordToRow(record: Partial<TrackingShipmentRecord>): any {
 }
 
 /**
- * Fetch all active tracking records from Supabase PostgreSQL
+ * Fetch all active tracking records from Database PostgreSQL
  */
-export async function getTrackingRecordsFromSupabase(): Promise<TrackingShipmentRecord[]> {
+export async function getTrackingRecordsFromDB(): Promise<TrackingShipmentRecord[]> {
   try {
     const res = await fetch("/api/tracking");
     const json = await res.json();
@@ -311,19 +311,19 @@ export async function getTrackingRecordsFromSupabase(): Promise<TrackingShipment
 /**
  * Fetch single tracking record by ID
  */
-export async function getTrackingRecordByIdFromSupabase(id: string): Promise<TrackingShipmentRecord | null> {
-  const records = await getTrackingRecordsFromSupabase();
+export async function getTrackingRecordByIdFromDB(id: string): Promise<TrackingShipmentRecord | null> {
+  const records = await getTrackingRecordsFromDB();
   return records.find((r) => r.id === id) || null;
 }
 
 /**
- * Create a new Tracking Shipment in Supabase
+ * Create a new Tracking Shipment in Database
  */
-export async function createTrackingRecordInSupabase(
+export async function createTrackingRecordInDB(
   payload: Omit<TrackingShipmentRecord, "id" | "createdAt" | "updatedAt">
 ): Promise<TrackingShipmentRecord> {
   // Validate unique tracking number
-  const current = await getTrackingRecordsFromSupabase();
+  const current = await getTrackingRecordsFromDB();
   if (current.some((r) => r.trackingNumber.toUpperCase() === payload.trackingNumber.trim().toUpperCase())) {
     throw new Error(`Tracking Number '${payload.trackingNumber}' already exists.`);
   }
@@ -362,9 +362,9 @@ export async function createTrackingRecordInSupabase(
 }
 
 /**
- * Update an existing tracking record in Supabase
+ * Update an existing tracking record in Database
  */
-export async function updateTrackingRecordInSupabase(
+export async function updateTrackingRecordInDB(
   id: string,
   updates: Partial<TrackingShipmentRecord>
 ): Promise<TrackingShipmentRecord> {
@@ -384,16 +384,16 @@ export async function updateTrackingRecordInSupabase(
     throw new Error(`Tracking record with ID '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapRecordToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("tracking_shipments")
       .update(rowUpdates)
       .eq("id", id)
@@ -401,13 +401,13 @@ export async function updateTrackingRecordInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase update error for tracking_shipments:", error?.message);
+      console.warn("Database update error for tracking_shipments:", error?.message);
       return updatedRecord;
     }
 
     return mapRowToTrackingRecord(data);
   } catch (err) {
-    console.error("Failed to update tracking_shipment in Supabase:", err);
+    console.error("Failed to update tracking_shipment in Database:", err);
     return updatedRecord;
   }
 }
@@ -415,14 +415,14 @@ export async function updateTrackingRecordInSupabase(
 /**
  * Advance or update milestone gate for a shipment with auditable timeline logging
  */
-export async function updateTrackingGateInSupabase(
+export async function updateTrackingGateInDB(
   id: string,
   targetGate: MilestoneGate,
   status: TrackingStatus,
   notes?: string,
   actor: string = "Floor Supervisor"
 ): Promise<TrackingShipmentRecord> {
-  const current = await getTrackingRecordByIdFromSupabase(id);
+  const current = await getTrackingRecordByIdFromDB(id);
   if (!current) throw new Error("Tracking record not found.");
 
   const updates: Partial<TrackingShipmentRecord> = {
@@ -438,9 +438,9 @@ export async function updateTrackingGateInSupabase(
     updates.deliveredAt = new Date().toISOString();
   }
 
-  const updated = await updateTrackingRecordInSupabase(id, updates);
+  const updated = await updateTrackingRecordInDB(id, updates);
 
-  // If production job is linked, record timeline event in Supabase
+  // If production job is linked, record timeline event in Database
   if (updated.productionJobId) {
     await addProductionTimelineEvent(
       updated.productionJobId,
@@ -455,29 +455,29 @@ export async function updateTrackingGateInSupabase(
 }
 
 /**
- * Soft-delete / archive a tracking record in Supabase
+ * Soft-delete / archive a tracking record in Database
  */
-export async function archiveTrackingRecordInSupabase(id: string): Promise<boolean> {
-  await updateTrackingRecordInSupabase(id, { isArchived: true });
+export async function archiveTrackingRecordInDB(id: string): Promise<boolean> {
+  await updateTrackingRecordInDB(id, { isArchived: true });
   return true;
 }
 
 /**
- * Hard delete a tracking record from Supabase
+ * Hard delete a tracking record from Database
  */
-export async function deleteTrackingRecordInSupabase(id: string): Promise<boolean> {
+export async function deleteTrackingRecordInDB(id: string): Promise<boolean> {
   const current = getLocalTrackingRecords().filter((r) => r.id !== id);
   setLocalTrackingRecords(current);
 
-  if (!isSupabaseConfigured()) return true;
+  if (!isDatabaseConfigured()) return true;
 
   try {
-    const supabase = createClient();
-    const { error } = await supabase.from("tracking_shipments").delete().eq("id", id);
-    if (error) console.warn("Supabase delete error:", error.message);
+    const database = createClient();
+    const { error } = await database.from("tracking_shipments").delete().eq("id", id);
+    if (error) console.warn("Database delete error:", error.message);
     return true;
   } catch (err) {
-    console.error("Failed to delete tracking shipment in Supabase:", err);
+    console.error("Failed to delete tracking shipment in Database:", err);
     return false;
   }
 }
@@ -486,7 +486,7 @@ export async function deleteTrackingRecordInSupabase(id: string): Promise<boolea
  * Get tracking records for a specific Production Job
  */
 export async function getTrackingForProductionJob(jobId: string): Promise<TrackingShipmentRecord[]> {
-  const records = await getTrackingRecordsFromSupabase();
+  const records = await getTrackingRecordsFromDB();
   return records.filter((r) => r.productionJobId === jobId);
 }
 
@@ -494,28 +494,28 @@ export async function getTrackingForProductionJob(jobId: string): Promise<Tracki
  * Get tracking records for a specific Sales Order
  */
 export async function getTrackingForOrder(orderId: string): Promise<TrackingShipmentRecord[]> {
-  const records = await getTrackingRecordsFromSupabase();
+  const records = await getTrackingRecordsFromDB();
   return records.filter((r) => r.orderId === orderId);
 }
 
 /**
  * Get unified production timeline from PostgreSQL
  */
-export async function getTrackingTimelineFromSupabase(productionJobId: string): Promise<ProductionTimelineRecord[]> {
+export async function getTrackingTimelineFromDB(productionJobId: string): Promise<ProductionTimelineRecord[]> {
   if (!productionJobId) return [];
   try {
-    if (!isSupabaseConfigured()) {
+    if (!isDatabaseConfigured()) {
       return [];
     }
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const database = createClient();
+    const { data, error } = await database
       .from("production_timeline")
       .select("*")
       .eq("production_job_id", productionJobId)
       .order("timestamp", { ascending: false });
 
     if (error) {
-      console.warn("Supabase timeline fetch error:", error.message);
+      console.warn("Database timeline fetch error:", error.message);
       return [];
     }
 
@@ -535,19 +535,19 @@ export async function getTrackingTimelineFromSupabase(productionJobId: string): 
 }
 
 /**
- * Resolve Cut Bundle barcode directly from Supabase with parent Job and Order metadata
+ * Resolve Cut Bundle barcode directly from Database with parent Job and Order metadata
  */
 export async function resolveBundleBarcode(barcode: string): Promise<BundleTrackingResolution | null> {
   const cleanBarcode = (barcode || "").trim().toUpperCase();
   if (!cleanBarcode) return null;
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return null;
   }
 
   try {
-    const supabase = createClient();
-    const { data: bundleData, error: bundleError } = await supabase
+    const database = createClient();
+    const { data: bundleData, error: bundleError } = await database
       .from("production_bundles")
       .select("*")
       .ilike("bundle_barcode", cleanBarcode)
@@ -564,7 +564,7 @@ export async function resolveBundleBarcode(barcode: string): Promise<BundleTrack
     let styleCode: string | undefined;
 
     if (bundleData.production_job_id) {
-      const { data: jobData } = await supabase
+      const { data: jobData } = await database
         .from("production_jobs")
         .select("job_number, order_number, client_name, style_code")
         .eq("id", bundleData.production_job_id)

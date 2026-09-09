@@ -1,28 +1,28 @@
 // lib/services/dispatch-service.ts
-// FactoryOS PostgreSQL Supabase Repository for Dispatch, Shipping & Export Logistics Module
+// FactoryOS PostgreSQL Database Repository for Dispatch, Shipping & Export Logistics Module
 // Authoritative Garment Factory Dispatch Staging, Container Loading & Export Logistics Engine
 
 import {
-  getProductionJobsFromSupabase,
-  getProductionJobByIdFromSupabase,
-  updateProductionJobInSupabase,
+  getProductionJobsFromDB,
+  getProductionJobByIdFromDB,
+  updateProductionJobInDB,
   addProductionTimelineEvent,
   ProductionJobRecord,
 } from "./production-service";
 import {
-  getTrackingRecordsFromSupabase,
-  updateTrackingGateInSupabase,
+  getTrackingRecordsFromDB,
+  updateTrackingGateInDB,
   TrackingShipmentRecord,
 } from "./tracking-service";
 import {
-  getPackingRecordsFromSupabase,
-  getPackingCartonsFromSupabase,
+  getPackingRecordsFromDB,
+  getPackingCartonsFromDB,
   PackingRecord,
   PackingCartonRecord,
 } from "./packing-service";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -300,9 +300,9 @@ function mapDispatchCartonToRow(c: Partial<DispatchCartonRecord>): any {
 // -----------------------------------------------------------------------------
 
 /**
- * Fetch all Dispatch Records from Supabase PostgreSQL
+ * Fetch all Dispatch Records from Database PostgreSQL
  */
-export async function getDispatchRecordsFromSupabase(): Promise<DispatchRecord[]> {
+export async function getDispatchRecordsFromDB(): Promise<DispatchRecord[]> {
   try {
     const res = await fetch("/api/dispatch");
     const json = await res.json();
@@ -325,35 +325,35 @@ export async function getDispatchRecordsFromSupabase(): Promise<DispatchRecord[]
 /**
  * Fetch single Dispatch Record by ID
  */
-export async function getDispatchRecordByIdFromSupabase(id: string): Promise<DispatchRecord | null> {
-  const all = await getDispatchRecordsFromSupabase();
+export async function getDispatchRecordByIdFromDB(id: string): Promise<DispatchRecord | null> {
+  const all = await getDispatchRecordsFromDB();
   return all.find((d) => d.id === id) || null;
 }
 
 /**
  * Fetch assigned cartons for a dispatch
  */
-export async function getDispatchCartonsFromSupabase(dispatchId: string): Promise<DispatchCartonRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getDispatchCartonsFromDB(dispatchId: string): Promise<DispatchCartonRecord[]> {
+  if (!isDatabaseConfigured()) {
     return getLocalDispatchCartons().filter((c) => c.dispatchId === dispatchId);
   }
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const database = createClient();
+    const { data, error } = await database
       .from("dispatch_cartons")
       .select("*")
       .eq("dispatch_id", dispatchId)
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.warn("Supabase fetch error for dispatch_cartons:", error.message);
+      console.warn("Database fetch error for dispatch_cartons:", error.message);
       return getLocalDispatchCartons().filter((c) => c.dispatchId === dispatchId);
     }
 
     return (data || []).map(mapRowToDispatchCarton);
   } catch (err) {
-    console.error("Failed to query dispatch_cartons from Supabase:", err);
+    console.error("Failed to query dispatch_cartons from Database:", err);
     return getLocalDispatchCartons().filter((c) => c.dispatchId === dispatchId);
   }
 }
@@ -361,7 +361,7 @@ export async function getDispatchCartonsFromSupabase(dispatchId: string): Promis
 /**
  * Create a new Dispatch record with selected physical cartons
  */
-export async function createDispatchInSupabase(payload: {
+export async function createDispatchInDB(payload: {
   productionJobId: string;
   orderId?: string;
   clientId?: string;
@@ -384,7 +384,7 @@ export async function createDispatchInSupabase(payload: {
     throw new Error("Cannot create dispatch: At least one master carton must be selected.");
   }
 
-  const job = await getProductionJobByIdFromSupabase(payload.productionJobId);
+  const job = await getProductionJobByIdFromDB(payload.productionJobId);
   if (!job) {
     throw new Error(`Production Job '${payload.productionJobId}' not found.`);
   }
@@ -396,7 +396,7 @@ export async function createDispatchInSupabase(payload: {
   }
 
   // Fetch all cartons to validate and calculate totals
-  const allCartons = await getPackingCartonsFromSupabase(undefined, payload.productionJobId);
+  const allCartons = await getPackingCartonsFromDB(undefined, payload.productionJobId);
   const selectedCartons = allCartons.filter((c) => payload.cartonIds.includes(c.id));
 
   if (selectedCartons.length === 0) {
@@ -423,7 +423,7 @@ export async function createDispatchInSupabase(payload: {
   const dispatchId = `dsp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   // Find linked tracking shipment
-  const trackingList = await getTrackingRecordsFromSupabase();
+  const trackingList = await getTrackingRecordsFromDB();
   const matchedTracking = trackingList.find(
     (t: TrackingShipmentRecord) => t.productionJobId === payload.productionJobId || (payload.orderId && t.orderId === payload.orderId)
   );
@@ -489,7 +489,7 @@ export async function createDispatchInSupabase(payload: {
 
   // Sync Tracking Gate 8 (Warehouse Staging & Dispatch Loading)
   if (matchedTracking && matchedTracking.currentGate < 8) {
-    await updateTrackingGateInSupabase(
+    await updateTrackingGateInDB(
       matchedTracking.id,
       8,
       "packed",
@@ -538,7 +538,7 @@ export async function createDispatchInSupabase(payload: {
 /**
  * Update an existing dispatch record
  */
-export async function updateDispatchInSupabase(
+export async function updateDispatchInDB(
   id: string,
   updates: Partial<DispatchRecord>
 ): Promise<DispatchRecord> {
@@ -558,16 +558,16 @@ export async function updateDispatchInSupabase(
     throw new Error(`Dispatch record '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapDispatchRecordToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("dispatch_records")
       .update(rowUpdates)
       .eq("id", id)
@@ -575,13 +575,13 @@ export async function updateDispatchInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase update error for dispatch_records:", error?.message);
+      console.warn("Database update error for dispatch_records:", error?.message);
       return updatedRecord;
     }
 
     return mapRowToDispatchRecord(data);
   } catch (err) {
-    console.error("Failed to update dispatch in Supabase:", err);
+    console.error("Failed to update dispatch in Database:", err);
     return updatedRecord;
   }
 }
@@ -589,14 +589,14 @@ export async function updateDispatchInSupabase(
 /**
  * Mark dispatch cartons as loaded into export vehicle / container
  */
-export async function markDispatchLoadedInSupabase(
+export async function markDispatchLoadedInDB(
   dispatchId: string,
   actor: string = "Dispatch Supervisor",
   vehicleContainerNo?: string,
   driverName?: string,
   driverPhone?: string
 ): Promise<DispatchRecord> {
-  const dispatch = await getDispatchRecordByIdFromSupabase(dispatchId);
+  const dispatch = await getDispatchRecordByIdFromDB(dispatchId);
   if (!dispatch) {
     throw new Error(`Dispatch record '${dispatchId}' not found.`);
   }
@@ -611,7 +611,7 @@ export async function markDispatchLoadedInSupabase(
   setLocalDispatchCartons(updatedCartons);
 
   // Update dispatch status
-  const updatedDispatch = await updateDispatchInSupabase(dispatchId, {
+  const updatedDispatch = await updateDispatchInDB(dispatchId, {
     dispatchStatus: "loaded",
     vehicleContainerNo: vehicleContainerNo || dispatch.vehicleContainerNo || "EX-CONT-40FT-9921",
     driverName: driverName || dispatch.driverName || "Amjad Iqbal (Export Logistics)",
@@ -619,13 +619,13 @@ export async function markDispatchLoadedInSupabase(
   });
 
   // Sync Tracking Gate 8
-  const trackingList = await getTrackingRecordsFromSupabase();
+  const trackingList = await getTrackingRecordsFromDB();
   const matchedTracking = trackingList.find(
     (t: TrackingShipmentRecord) => t.productionJobId === dispatch.productionJobId || (dispatch.orderId && t.orderId === dispatch.orderId)
   );
 
   if (matchedTracking) {
-    await updateTrackingGateInSupabase(
+    await updateTrackingGateInDB(
       matchedTracking.id,
       8,
       "packed",
@@ -645,15 +645,15 @@ export async function markDispatchLoadedInSupabase(
     );
   }
 
-  if (isSupabaseConfigured()) {
+  if (isDatabaseConfigured()) {
     try {
-      const supabase = createClient();
-      await supabase
+      const database = createClient();
+      await database
         .from("dispatch_cartons")
         .update({ is_loaded: true, loaded_at: nowIso })
         .eq("dispatch_id", dispatchId);
     } catch (err) {
-      console.error("Failed to update loaded state in Supabase:", err);
+      console.error("Failed to update loaded state in Database:", err);
     }
   }
 
@@ -663,12 +663,12 @@ export async function markDispatchLoadedInSupabase(
 /**
  * Complete final dispatch and release shipment for transit
  */
-export async function completeDispatchInSupabase(
+export async function completeDispatchInDB(
   dispatchId: string,
   actor: string = "Export Logistics Manager",
   carrierTrackingNumber?: string
 ): Promise<DispatchRecord> {
-  const dispatch = await getDispatchRecordByIdFromSupabase(dispatchId);
+  const dispatch = await getDispatchRecordByIdFromDB(dispatchId);
   if (!dispatch) {
     throw new Error(`Dispatch record '${dispatchId}' not found.`);
   }
@@ -676,27 +676,27 @@ export async function completeDispatchInSupabase(
   const trackingNumber = carrierTrackingNumber || dispatch.carrierTrackingNumber || `EXP-AWB-${Date.now().toString().slice(-6)}`;
 
   // Update dispatch status to dispatched
-  const updatedDispatch = await updateDispatchInSupabase(dispatchId, {
+  const updatedDispatch = await updateDispatchInDB(dispatchId, {
     dispatchStatus: "dispatched",
     carrierTrackingNumber: trackingNumber,
   });
 
   // Advance Production Job status/stage
   if (dispatch.productionJobId) {
-    await updateProductionJobInSupabase(dispatch.productionJobId, {
+    await updateProductionJobInDB(dispatch.productionJobId, {
       status: "completed",
       stage: "packed",
     });
   }
 
   // Complete Tracking Gate 8 and advance to In Transit
-  const trackingList = await getTrackingRecordsFromSupabase();
+  const trackingList = await getTrackingRecordsFromDB();
   const matchedTracking = trackingList.find(
     (t: TrackingShipmentRecord) => t.productionJobId === dispatch.productionJobId || (dispatch.orderId && t.orderId === dispatch.orderId)
   );
 
   if (matchedTracking) {
-    await updateTrackingGateInSupabase(
+    await updateTrackingGateInDB(
       matchedTracking.id,
       8,
       "dispatched",
@@ -728,17 +728,17 @@ export async function resolveDispatchBarcode(barcode: string): Promise<{
   productionJob?: ProductionJobRecord;
   packingRecord?: PackingRecord;
 } | null> {
-  const allCartons = await getPackingCartonsFromSupabase();
+  const allCartons = await getPackingCartonsFromDB();
   const carton = allCartons.find((c) => c.cartonBarcode === barcode || c.cartonNumber === barcode);
   if (!carton) return null;
 
-  const allDispatches = await getDispatchRecordsFromSupabase();
+  const allDispatches = await getDispatchRecordsFromDB();
   const dispatch = allDispatches.find(
     (d) => d.productionJobId === carton.productionJobId || (d.cartons && d.cartons.some((dc) => dc.cartonBarcode === barcode))
   );
 
-  const job = carton.productionJobId ? await getProductionJobByIdFromSupabase(carton.productionJobId) : null;
-  const packingRecords = await getPackingRecordsFromSupabase();
+  const job = carton.productionJobId ? await getProductionJobByIdFromDB(carton.productionJobId) : null;
+  const packingRecords = await getPackingRecordsFromDB();
   const packingRecord = packingRecords.find((p) => p.id === carton.packingRecordId);
 
   return {
@@ -752,12 +752,12 @@ export async function resolveDispatchBarcode(barcode: string): Promise<{
 /**
  * Fetch Dispatch Queue: jobs with packed cartons ready to create a dispatch order
  */
-export async function getDispatchQueueFromSupabase(): Promise<DispatchQueueItem[]> {
+export async function getDispatchQueueFromDB(): Promise<DispatchQueueItem[]> {
   const [jobs, packingRecords, allCartons, allDispatches] = await Promise.all([
-    getProductionJobsFromSupabase(),
-    getPackingRecordsFromSupabase(),
-    getPackingCartonsFromSupabase(),
-    getDispatchRecordsFromSupabase(),
+    getProductionJobsFromDB(),
+    getPackingRecordsFromDB(),
+    getPackingCartonsFromDB(),
+    getDispatchRecordsFromDB(),
   ]);
 
   // Find all carton IDs already in active dispatches
@@ -799,10 +799,10 @@ export async function getDispatchQueueFromSupabase(): Promise<DispatchQueueItem[
 /**
  * Calculate live Dispatch Floor KPIs strictly from database
  */
-export async function getDispatchKPIsFromSupabase(): Promise<DispatchKPIData> {
+export async function getDispatchKPIsFromDB(): Promise<DispatchKPIData> {
   const [dispatches, queue] = await Promise.all([
-    getDispatchRecordsFromSupabase(),
-    getDispatchQueueFromSupabase(),
+    getDispatchRecordsFromDB(),
+    getDispatchQueueFromDB(),
   ]);
 
   if (dispatches.length === 0) {

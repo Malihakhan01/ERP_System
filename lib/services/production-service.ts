@@ -1,6 +1,6 @@
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -402,7 +402,7 @@ export const TIMELINE_STORAGE_KEY = "factoryos_production_timeline";
 export const PRODUCTION_LINES_STORAGE_KEY = "factoryos_production_lines";
 export const SEWING_LINE_ALLOCATIONS_STORAGE_KEY = "factoryos_sewing_line_allocations";
 
-export async function getProductionJobsFromSupabase(): Promise<ProductionJobRecord[]> {
+export async function getProductionJobsFromDB(): Promise<ProductionJobRecord[]> {
   try {
     const res = await fetch("/api/production");
     const json = await res.json();
@@ -426,14 +426,14 @@ export async function getProductionJobsFromSupabase(): Promise<ProductionJobReco
   return [];
 }
 
-export async function getProductionJobByIdFromSupabase(id: string): Promise<ProductionJobRecord | null> {
-  if (!isSupabaseConfigured()) {
-    const jobs = await getProductionJobsFromSupabase();
+export async function getProductionJobByIdFromDB(id: string): Promise<ProductionJobRecord | null> {
+  if (!isDatabaseConfigured()) {
+    const jobs = await getProductionJobsFromDB();
     return jobs.find((j) => j.id === id) || null;
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_jobs")
     .select("*")
     .eq("id", id)
@@ -442,14 +442,14 @@ export async function getProductionJobByIdFromSupabase(id: string): Promise<Prod
   if (error) {
     if (error.code === "PGRST116") return null;
     console.error("Error fetching production job by ID:", error);
-    const jobs = await getProductionJobsFromSupabase();
+    const jobs = await getProductionJobsFromDB();
     return jobs.find((j) => j.id === id) || null;
   }
 
   return data ? mapRowToProductionJob(data) : null;
 }
 
-export async function createProductionJobInSupabase(job: ProductionJobRecord): Promise<ProductionJobRecord> {
+export async function createProductionJobInDB(job: ProductionJobRecord): Promise<ProductionJobRecord> {
   try {
     const res = await fetch("/api/production", {
       method: "POST",
@@ -478,21 +478,21 @@ export async function createProductionJobInSupabase(job: ProductionJobRecord): P
 
 
 
-export async function updateProductionJobInSupabase(
+export async function updateProductionJobInDB(
   jobOrId: ProductionJobRecord | string,
   partialUpdates?: Partial<ProductionJobRecord>
 ): Promise<ProductionJobRecord> {
   let job: ProductionJobRecord;
 
   if (typeof jobOrId === "string") {
-    const existing = await getProductionJobByIdFromSupabase(jobOrId);
+    const existing = await getProductionJobByIdFromDB(jobOrId);
     if (!existing) throw new Error(`Production job '${jobOrId}' not found.`);
     job = { ...existing, ...(partialUpdates || {}), updatedAt: new Date().toISOString() };
   } else {
     job = jobOrId;
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(PRODUCTION_JOBS_STORAGE_KEY);
@@ -507,9 +507,9 @@ export async function updateProductionJobInSupabase(
     return job;
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const row = mapProductionJobToRow(job);
-  const { data, error } = await supabase
+  const { data, error } = await database
     .from("production_jobs")
     .update(row)
     .eq("id", job.id)
@@ -517,7 +517,7 @@ export async function updateProductionJobInSupabase(
     .single();
 
   if (error) {
-    console.error("Error updating production job in Supabase:", error);
+    console.error("Error updating production job in Database:", error);
     throw error;
   }
 
@@ -533,8 +533,8 @@ export async function updateProductionJobInSupabase(
   return updated;
 }
 
-export async function deleteProductionJobInSupabase(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+export async function deleteProductionJobInDB(id: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(PRODUCTION_JOBS_STORAGE_KEY);
@@ -549,10 +549,10 @@ export async function deleteProductionJobInSupabase(id: string): Promise<boolean
     return true;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // Safety verification: check if material has already been issued
-  const { count: issueCount } = await supabase
+  const { count: issueCount } = await database
     .from("production_material_issues")
     .select("id", { count: "exact", head: true })
     .eq("production_job_id", id);
@@ -562,13 +562,13 @@ export async function deleteProductionJobInSupabase(id: string): Promise<boolean
   }
 
   // Soft archive to protect audit trail
-  const { error } = await supabase
+  const { error } = await database
     .from("production_jobs")
     .update({ is_archived: true })
     .eq("id", id);
 
   if (error) {
-    console.error("Error archiving production job in Supabase:", error);
+    console.error("Error archiving production job in Database:", error);
     throw error;
   }
 
@@ -580,7 +580,7 @@ export async function deleteProductionJobInSupabase(id: string): Promise<boolean
 // -----------------------------------------------------------------------------
 
 export async function getCuttingPlansForJob(productionJobId: string): Promise<CuttingPlanRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(CUTTING_PLANS_STORAGE_KEY);
@@ -593,8 +593,8 @@ export async function getCuttingPlansForJob(productionJobId: string): Promise<Cu
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("cutting_plans")
     .select("*, sizes:cutting_plan_sizes(*)")
     .eq("production_job_id", productionJobId)
@@ -648,7 +648,7 @@ export async function createCuttingPlan(
   plan: Omit<CuttingPlanRecord, "id" | "createdAt">,
   sizes: Omit<CuttingPlanSizeRecord, "id" | "cuttingPlanId" | "createdAt">[]
 ): Promise<CuttingPlanRecord> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const planId = "cut_" + Date.now();
     const newPlan: CuttingPlanRecord = {
       id: planId,
@@ -691,8 +691,8 @@ export async function createCuttingPlan(
     return newPlan;
   }
 
-  const supabase = createClient();
-  const { data: planData, error: planError } = await supabase
+  const database = createClient();
+  const { data: planData, error: planError } = await database
     .from("cutting_plans")
     .insert([
       {
@@ -725,7 +725,7 @@ export async function createCuttingPlan(
       actual_cut_quantity: s.actualCutQuantity || 0,
     }));
 
-    const { error: sizeError } = await supabase.from("cutting_plan_sizes").insert(sizeRows);
+    const { error: sizeError } = await database.from("cutting_plan_sizes").insert(sizeRows);
     if (sizeError) throw sizeError;
   }
 
@@ -739,7 +739,7 @@ export async function createCuttingPlan(
 export async function issueMaterialToProduction(
   issue: Omit<ProductionMaterialIssueRecord, "id" | "issuedAt" | "netConsumedQty" | "totalCost" | "stockMovementId">
 ): Promise<ProductionMaterialIssueRecord> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const newIssue: ProductionMaterialIssueRecord = {
       id: "iss_" + Date.now(),
       issueNumber: issue.issueNumber,
@@ -816,10 +816,10 @@ export async function issueMaterialToProduction(
     return newIssue;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // 1. Validate Available Stock
-  const { data: invItem, error: fetchError } = await supabase
+  const { data: invItem, error: fetchError } = await database
     .from("inventory_items")
     .select("available_stock, allocated_stock, bay, name")
     .eq("id", issue.inventoryItemId)
@@ -837,7 +837,7 @@ export async function issueMaterialToProduction(
   }
 
   // 2. Create Stock Movement audit log
-  const { data: moveData, error: moveError } = await supabase
+  const { data: moveData, error: moveError } = await database
     .from("stock_movements")
     .insert([
       {
@@ -862,13 +862,13 @@ export async function issueMaterialToProduction(
 
   // 3. Decrement available stock from inventory_items
   const newStock = Math.max(0, currentAvailable - issue.issuedQuantity);
-  await supabase
+  await database
     .from("inventory_items")
     .update({ available_stock: newStock })
     .eq("id", issue.inventoryItemId);
 
   // 4. Insert Production Material Issue Record
-  const { data: issueData, error: issueError } = await supabase
+  const { data: issueData, error: issueError } = await database
     .from("production_material_issues")
     .insert([
       {
@@ -896,14 +896,14 @@ export async function issueMaterialToProduction(
   if (issueError) throw issueError;
 
   // 5. Advance production job stage if in planning
-  const { data: jobData } = await supabase
+  const { data: jobData } = await database
     .from("production_jobs")
     .select("stage, status, job_number")
     .eq("id", issue.productionJobId)
     .single();
 
   if (jobData && (jobData.stage === "planning" || jobData.status === "draft")) {
-    await supabase
+    await database
       .from("production_jobs")
       .update({ stage: "cutting", status: "in_production" })
       .eq("id", issue.productionJobId);
@@ -949,7 +949,7 @@ export async function addProductionTimelineEvent(
   description: string,
   actor: string = "System"
 ): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(TIMELINE_STORAGE_KEY);
@@ -972,11 +972,11 @@ export async function addProductionTimelineEvent(
     return true;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // Prevent duplicate events within 5 seconds for the same title and job
   const fiveSecsAgo = new Date(Date.now() - 5000).toISOString();
-  const { data: existing } = await supabase
+  const { data: existing } = await database
     .from("production_timeline")
     .select("id")
     .eq("production_job_id", jobId)
@@ -988,7 +988,7 @@ export async function addProductionTimelineEvent(
     return true; // deduplicated
   }
 
-  const { error } = await supabase.from("production_timeline").insert([
+  const { error } = await database.from("production_timeline").insert([
     {
       production_job_id: jobId,
       event_type: eventType,
@@ -1019,7 +1019,7 @@ export async function logCuttingExecution(params: {
   cutterName?: string;
   sizeUpdates: { id: string; size: string; actualCutQuantity: number }[];
 }): Promise<CuttingExecutionRecord> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const execRecord: CuttingExecutionRecord = {
       id: "exec_" + Date.now(),
       cuttingPlanId: params.cuttingPlanId,
@@ -1122,10 +1122,10 @@ export async function logCuttingExecution(params: {
     return execRecord;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // 1. Insert cutting execution
-  const { data: execData, error: execError } = await supabase
+  const { data: execData, error: execError } = await database
     .from("cutting_executions")
     .insert([
       {
@@ -1148,27 +1148,27 @@ export async function logCuttingExecution(params: {
 
   // 2. Update size cut quantities in cutting_plan_sizes
   for (const s of params.sizeUpdates) {
-    await supabase
+    await database
       .from("cutting_plan_sizes")
       .update({ actual_cut_quantity: s.actualCutQuantity })
       .eq("id", s.id);
   }
 
   // 3. Mark plan as completed
-  await supabase
+  await database
     .from("cutting_plans")
     .update({ status: "completed" })
     .eq("id", params.cuttingPlanId);
 
   // 4. Update Production Job total cut quantity
-  const { data: allExecs } = await supabase
+  const { data: allExecs } = await database
     .from("cutting_executions")
     .select("actual_cut_pieces")
     .eq("production_job_id", params.productionJobId);
 
   const totalCut = (allExecs || []).reduce((sum: number, e: any) => sum + Number(e.actual_cut_pieces || 0), 0);
 
-  const { data: job } = await supabase
+  const { data: job } = await database
     .from("production_jobs")
     .select("planned_quantity, stage, job_number")
     .eq("id", params.productionJobId)
@@ -1176,7 +1176,7 @@ export async function logCuttingExecution(params: {
 
   const newStage = totalCut >= Number(job?.planned_quantity || 0) ? "cutting_completed" : "cutting";
 
-  await supabase
+  await database
     .from("production_jobs")
     .update({
       total_cut_quantity: totalCut,
@@ -1212,7 +1212,7 @@ export async function logCuttingExecution(params: {
   }
 
   if (bundleRows.length > 0) {
-    await supabase.from("production_bundles").insert(bundleRows);
+    await database.from("production_bundles").insert(bundleRows);
   }
 
   // 6. Log Timeline Event
@@ -1241,7 +1241,7 @@ export async function logCuttingExecution(params: {
 }
 
 export async function getMaterialIssuesForJob(productionJobId: string): Promise<ProductionMaterialIssueRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(MATERIAL_ISSUES_STORAGE_KEY);
@@ -1254,8 +1254,8 @@ export async function getMaterialIssuesForJob(productionJobId: string): Promise<
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_material_issues")
     .select("*")
     .eq("production_job_id", productionJobId)
@@ -1291,8 +1291,8 @@ export async function getMaterialIssuesForJob(productionJobId: string): Promise<
 // PRODUCTION LINES & MASTER SETUP (PHASE 2.4)
 // -----------------------------------------------------------------------------
 
-export async function getProductionLinesFromSupabase(): Promise<ProductionLineRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getProductionLinesFromDB(): Promise<ProductionLineRecord[]> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(PRODUCTION_LINES_STORAGE_KEY);
@@ -1305,8 +1305,8 @@ export async function getProductionLinesFromSupabase(): Promise<ProductionLineRe
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_lines")
     .select("*")
     .order("line_code", { ascending: true });
@@ -1338,12 +1338,12 @@ export async function getProductionLinesFromSupabase(): Promise<ProductionLineRe
   }));
 }
 
-export async function getProductionLineByIdFromSupabase(lineId: string): Promise<ProductionLineRecord | null> {
-  const lines = await getProductionLinesFromSupabase();
+export async function getProductionLineByIdFromDB(lineId: string): Promise<ProductionLineRecord | null> {
+  const lines = await getProductionLinesFromDB();
   return lines.find((l) => l.id === lineId || l.lineCode === lineId) || null;
 }
 
-export async function createProductionLineInSupabase(
+export async function createProductionLineInDB(
   line: Omit<ProductionLineRecord, "id" | "createdAt">
 ): Promise<ProductionLineRecord> {
   const normalizedCode = (line.lineCode || "").trim().toLowerCase();
@@ -1354,7 +1354,7 @@ export async function createProductionLineInSupabase(
   }
 
   // Duplicate Check
-  const existingLines = await getProductionLinesFromSupabase();
+  const existingLines = await getProductionLinesFromDB();
   const isDuplicate = existingLines.some(
     (l) => (l.lineCode || "").toLowerCase() === normalizedCode || (l.lineName || "").toLowerCase() === normalizedName
   );
@@ -1363,7 +1363,7 @@ export async function createProductionLineInSupabase(
     throw new Error(`Duplicate line identifier: A stitching line with code '${line.lineCode}' or name '${line.lineName}' already exists.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const newLine: ProductionLineRecord = {
       id: "line_" + Date.now(),
       lineCode: line.lineCode.trim(),
@@ -1389,8 +1389,8 @@ export async function createProductionLineInSupabase(
     return newLine;
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_lines")
     .insert([
       {
@@ -1423,11 +1423,11 @@ export async function createProductionLineInSupabase(
   };
 }
 
-export async function updateProductionLineInSupabase(
+export async function updateProductionLineInDB(
   id: string,
   updates: Partial<ProductionLineRecord>
 ): Promise<ProductionLineRecord> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     let updated: ProductionLineRecord | null = null;
     if (typeof window !== "undefined") {
       try {
@@ -1450,7 +1450,7 @@ export async function updateProductionLineInSupabase(
     return updated;
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const updatePayload: Record<string, any> = {};
   if (updates.lineName !== undefined) updatePayload.line_name = updates.lineName;
   if (updates.department !== undefined) updatePayload.department = updates.department;
@@ -1460,7 +1460,7 @@ export async function updateProductionLineInSupabase(
   if (updates.dailyTargetCapacity !== undefined) updatePayload.daily_target_capacity = updates.dailyTargetCapacity;
   if (updates.isActive !== undefined) updatePayload.is_active = updates.isActive;
 
-  const { data, error } = await supabase
+  const { data, error } = await database
     .from("production_lines")
     .update(updatePayload)
     .eq("id", id)
@@ -1483,22 +1483,22 @@ export async function updateProductionLineInSupabase(
   };
 }
 
-export async function toggleProductionLineStatusInSupabase(
+export async function toggleProductionLineStatusInDB(
   id: string,
   isActive: boolean
 ): Promise<ProductionLineRecord> {
-  return updateProductionLineInSupabase(id, { isActive });
+  return updateProductionLineInDB(id, { isActive });
 }
 
-export async function assignSupervisorToLineInSupabase(
+export async function assignSupervisorToLineInDB(
   lineId: string,
   supervisorId: string,
   supervisorName: string
 ): Promise<ProductionLineRecord> {
-  return updateProductionLineInSupabase(lineId, { supervisorId, supervisorName });
+  return updateProductionLineInDB(lineId, { supervisorId, supervisorName });
 }
 
-export async function allocateJobToLineInSupabase(params: {
+export async function allocateJobToLineInDB(params: {
   productionJobId: string;
   lineCode: string;
   lineName?: string;
@@ -1512,21 +1512,21 @@ export async function allocateJobToLineInSupabase(params: {
   supervisorName?: string;
 }): Promise<SewingLineAllocationRecord> {
   // 1. Verify line exists and is active
-  const lines = await getProductionLinesFromSupabase();
+  const lines = await getProductionLinesFromDB();
   const matchedLine = lines.find((l) => l.lineCode === params.lineCode || l.id === params.lineCode);
   if (matchedLine && !matchedLine.isActive) {
     throw new Error(`Cannot allocate job to inactive stitching line ${matchedLine.lineName} (${matchedLine.lineCode}).`);
   }
 
   // 2. Verify job exists
-  const job = await getProductionJobByIdFromSupabase(params.productionJobId);
+  const job = await getProductionJobByIdFromDB(params.productionJobId);
   if (!job) {
     throw new Error(`Production job with ID ${params.productionJobId} not found.`);
   }
 
   const lineName = params.lineName || matchedLine?.lineName || params.lineCode;
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const allocation: SewingLineAllocationRecord = {
       id: "alloc_" + Date.now(),
       productionJobId: params.productionJobId,
@@ -1585,10 +1585,10 @@ export async function allocateJobToLineInSupabase(params: {
     return allocation;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // 1. Insert sewing line allocation
-  const { data: allocData, error: allocError } = await supabase
+  const { data: allocData, error: allocError } = await database
     .from("sewing_line_allocations")
     .insert([
       {
@@ -1622,7 +1622,7 @@ export async function allocateJobToLineInSupabase(params: {
     jobUpdates.supervisor_name = params.supervisorName;
   }
 
-  await supabase
+  await database
     .from("production_jobs")
     .update(jobUpdates)
     .eq("id", params.productionJobId);
@@ -1652,12 +1652,12 @@ export async function allocateJobToLineInSupabase(params: {
   };
 }
 
-export async function deallocateJobFromLineInSupabase(
+export async function deallocateJobFromLineInDB(
   allocationId: string,
   productionJobId: string,
   lineCode: string
 ): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(SEWING_LINE_ALLOCATIONS_STORAGE_KEY);
@@ -1679,8 +1679,8 @@ export async function deallocateJobFromLineInSupabase(
     return true;
   }
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const database = createClient();
+  const { error } = await database
     .from("sewing_line_allocations")
     .update({ status: "completed" })
     .eq("id", allocationId);
@@ -1699,7 +1699,7 @@ export async function deallocateJobFromLineInSupabase(
 }
 
 export async function getActiveLineAllocations(): Promise<SewingLineAllocationRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(SEWING_LINE_ALLOCATIONS_STORAGE_KEY);
@@ -1712,8 +1712,8 @@ export async function getActiveLineAllocations(): Promise<SewingLineAllocationRe
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("sewing_line_allocations")
     .select("*")
     .eq("status", "active")
@@ -1738,7 +1738,7 @@ export async function getActiveLineAllocations(): Promise<SewingLineAllocationRe
 }
 
 export async function getLineAllocationsForJob(productionJobId: string): Promise<SewingLineAllocationRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(SEWING_LINE_ALLOCATIONS_STORAGE_KEY);
@@ -1751,8 +1751,8 @@ export async function getLineAllocationsForJob(productionJobId: string): Promise
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("sewing_line_allocations")
     .select("*")
     .eq("production_job_id", productionJobId)
@@ -1805,7 +1805,7 @@ export function isValidBundleTransition(currentStatus: string, targetStatus: str
 }
 
 export async function getAllActiveBundles(): Promise<ProductionBundleRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(BUNDLES_STORAGE_KEY);
@@ -1817,8 +1817,8 @@ export async function getAllActiveBundles(): Promise<ProductionBundleRecord[]> {
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_bundles")
     .select("*")
     .order("created_at", { ascending: false });
@@ -1848,7 +1848,7 @@ export async function getAllActiveBundles(): Promise<ProductionBundleRecord[]> {
 }
 
 export async function getBundlesForJob(productionJobId: string): Promise<ProductionBundleRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(BUNDLES_STORAGE_KEY);
@@ -1861,8 +1861,8 @@ export async function getBundlesForJob(productionJobId: string): Promise<Product
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_bundles")
     .select("*")
     .eq("production_job_id", productionJobId)
@@ -1913,7 +1913,7 @@ export async function updateBundleStatus(
     );
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     let updated: ProductionBundleRecord | null = null;
     if (typeof window !== "undefined") {
       try {
@@ -1946,8 +1946,8 @@ export async function updateBundleStatus(
     return updated || { ...currentBundle, status: newStatus };
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_bundles")
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq("id", currentBundle.id)
@@ -2009,7 +2009,7 @@ export async function issueBundleToOperator(params: {
   lineCode: string;
   supervisorName?: string;
 }): Promise<ProductionBundleRecord> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     let updatedBnd: ProductionBundleRecord | null = null;
     if (typeof window !== "undefined") {
       try {
@@ -2083,10 +2083,10 @@ export async function issueBundleToOperator(params: {
     );
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // 1. Verify bundle exists and is eligible
-  const { data: bnd, error: bndErr } = await supabase
+  const { data: bnd, error: bndErr } = await database
     .from("production_bundles")
     .select("*")
     .or(`id.eq.${params.bundleId},bundle_barcode.eq.${params.bundleId}`)
@@ -2098,7 +2098,7 @@ export async function issueBundleToOperator(params: {
   }
 
   // 2. Update bundle assignment
-  const { data: updatedBnd, error: updateErr } = await supabase
+  const { data: updatedBnd, error: updateErr } = await database
     .from("production_bundles")
     .update({
       assigned_employee_id: params.employeeId && !params.employeeId.startsWith("emp_") ? params.employeeId : null,
@@ -2115,7 +2115,7 @@ export async function issueBundleToOperator(params: {
   if (updateErr) throw updateErr;
 
   // 3. Update job stage to stitching
-  await supabase
+  await database
     .from("production_jobs")
     .update({
       stage: "stitching",
@@ -2178,7 +2178,7 @@ export async function recordOperatorProductionOutput(params: {
     throw new Error("Total output pieces (completed + rejected + rework) must be greater than 0.");
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     const totalEarned = params.piecesCompleted * params.ratePerPiece;
     const newLog: OperatorProductionLogRecord = {
       id: "log_" + Date.now(),
@@ -2283,10 +2283,10 @@ export async function recordOperatorProductionOutput(params: {
     return newLog;
   }
 
-  const supabase = createClient();
+  const database = createClient();
 
   // 1. Fetch bundle to check capacity
-  const { data: bnd, error: bndErr } = await supabase
+  const { data: bnd, error: bndErr } = await database
     .from("production_bundles")
     .select("*")
     .or(`id.eq.${params.bundleId},bundle_barcode.eq.${params.bundleId}`)
@@ -2303,7 +2303,7 @@ export async function recordOperatorProductionOutput(params: {
   }
 
   // 2. Insert into operator_production_logs
-  const { data: logData, error: logErr } = await supabase
+  const { data: logData, error: logErr } = await database
     .from("operator_production_logs")
     .insert([
       {
@@ -2334,7 +2334,7 @@ export async function recordOperatorProductionOutput(params: {
   const newRework = Number(bnd.rework_pieces || 0) + params.piecesRework;
   const isBundleFinished = newPassed + newRejected + newRework >= Number(bnd.quantity);
 
-  await supabase
+  await database
     .from("production_bundles")
     .update({
       passed_pieces: newPassed,
@@ -2347,7 +2347,7 @@ export async function recordOperatorProductionOutput(params: {
     .eq("id", bnd.id);
 
   // 4. Update production job aggregated counts
-  const { data: allJobLogs } = await supabase
+  const { data: allJobLogs } = await database
     .from("operator_production_logs")
     .select("pieces_completed, pieces_rejected, pieces_rework")
     .eq("production_job_id", params.productionJobId);
@@ -2356,7 +2356,7 @@ export async function recordOperatorProductionOutput(params: {
   const totalRejected = (allJobLogs || []).reduce((sum: number, l: any) => sum + Number(l.pieces_rejected || 0), 0);
   const totalRework = (allJobLogs || []).reduce((sum: number, l: any) => sum + Number(l.pieces_rework || 0), 0);
 
-  await supabase
+  await database
     .from("production_jobs")
     .update({
       total_stitched_quantity: totalStitched,
@@ -2402,7 +2402,7 @@ export async function recordOperatorProductionOutput(params: {
 export async function getOperatorProductionLogsForJob(
   productionJobId: string
 ): Promise<OperatorProductionLogRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(OPERATOR_LOGS_STORAGE_KEY);
@@ -2415,8 +2415,8 @@ export async function getOperatorProductionLogsForJob(
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("operator_production_logs")
     .select("*, bundle:production_bundles(bundle_barcode)")
     .eq("production_job_id", productionJobId)
@@ -2449,7 +2449,7 @@ export async function getOperatorProductionLogsForJob(
 export async function getOperatorProductionLogsByEmployee(
   employeeId: string
 ): Promise<OperatorProductionLogRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(OPERATOR_LOGS_STORAGE_KEY);
@@ -2462,8 +2462,8 @@ export async function getOperatorProductionLogsByEmployee(
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("operator_production_logs")
     .select("*, bundle:production_bundles(bundle_barcode)")
     .eq("employee_id", employeeId)
@@ -2504,7 +2504,7 @@ export async function getOperatorProductionEarningsForMonth(
 }> {
   let logs: OperatorProductionLogRecord[] = [];
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(OPERATOR_LOGS_STORAGE_KEY);
@@ -2515,8 +2515,8 @@ export async function getOperatorProductionEarningsForMonth(
       }
     }
   } else {
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const database = createClient();
+    const { data, error } = await database
       .from("operator_production_logs")
       .select("*")
       .eq("employee_id", employeeId)
@@ -2576,8 +2576,8 @@ export async function getOperatorProductionEarningsForMonth(
   };
 }
 
-export async function getFloorMetricsFromSupabase() {
-  if (!isSupabaseConfigured()) {
+export async function getFloorMetricsFromDB() {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const today = new Date().toISOString().split("T")[0];
@@ -2641,14 +2641,14 @@ export async function getFloorMetricsFromSupabase() {
     };
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const today = new Date().toISOString().split("T")[0];
 
   const [{ data: bundles }, { data: todayLogs }, { data: lines }, { data: jobs }] = await Promise.all([
-    supabase.from("production_bundles").select("status, current_stage"),
-    supabase.from("operator_production_logs").select("pieces_completed, pieces_rejected, pieces_rework, employee_id").eq("work_date", today),
-    supabase.from("production_lines").select("id, daily_target_capacity").eq("is_active", true),
-    supabase.from("production_jobs").select("id, stage, status").eq("stage", "stitching").eq("status", "in_production"),
+    database.from("production_bundles").select("status, current_stage"),
+    database.from("operator_production_logs").select("pieces_completed, pieces_rejected, pieces_rework, employee_id").eq("work_date", today),
+    database.from("production_lines").select("id, daily_target_capacity").eq("is_active", true),
+    database.from("production_jobs").select("id, stage, status").eq("stage", "stitching").eq("status", "in_production"),
   ]);
 
   const bundlesPending = (bundles || []).filter((b: any) => b.status === "pending" || b.status === "created" || b.current_stage === "cutting").length;
@@ -2680,10 +2680,10 @@ export async function getFloorMetricsFromSupabase() {
 // -----------------------------------------------------------------------------
 
 export async function getQaInspectionsForJob(productionJobId: string): Promise<QaInspectionRecord[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isDatabaseConfigured()) return [];
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("qa_inspections")
     .select("*, defects:qa_defect_details(*)")
     .eq("production_job_id", productionJobId)
@@ -2721,10 +2721,10 @@ export async function getQaInspectionsForJob(productionJobId: string): Promise<Q
 }
 
 export async function getPackingCartonsForJob(productionJobId: string): Promise<PackingCartonRecord[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isDatabaseConfigured()) return [];
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("packing_cartons")
     .select("*, items:packing_carton_items(*)")
     .eq("production_job_id", productionJobId)
@@ -2760,10 +2760,10 @@ export async function getPackingCartonsForJob(productionJobId: string): Promise<
 }
 
 export async function getProductionTimelineForJob(productionJobId: string): Promise<ProductionTimelineRecord[]> {
-  if (!isSupabaseConfigured()) return [];
+  if (!isDatabaseConfigured()) return [];
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("production_timeline")
     .select("*")
     .eq("production_job_id", productionJobId)

@@ -29,8 +29,8 @@ import {
   MOCKUP_STYLES,
 } from "@/lib/ai-mockup-engine";
 import {
-  getAiSettingsFromSupabase,
-  saveAiSettingsInSupabase,
+  getAiSettingsFromDB,
+  saveAiSettingsInDB,
 } from "@/lib/services/ai-mockup-service";
 
 export default function AiSettingsPage() {
@@ -46,13 +46,13 @@ export default function AiSettingsPage() {
     message: "",
   });
 
-  // Load Settings on Mount (From Server & Supabase)
+  // Load Settings on Mount (From Server & Database)
   React.useEffect(() => {
     fetch("/api/ai/settings")
       .then((res) => res.json())
       .then((serverData) => {
         if (serverData.success && serverData.settings) {
-          getAiSettingsFromSupabase().then((dbData) => {
+          getAiSettingsFromDB().then((dbData) => {
             setSettings({
               ...dbData,
               ...serverData.settings,
@@ -60,11 +60,11 @@ export default function AiSettingsPage() {
             });
           });
         } else {
-          getAiSettingsFromSupabase().then((dbData) => setSettings(dbData));
+          getAiSettingsFromDB().then((dbData) => setSettings(dbData));
         }
       })
       .catch(() => {
-        getAiSettingsFromSupabase().then((dbData) => setSettings(dbData));
+        getAiSettingsFromDB().then((dbData) => setSettings(dbData));
       });
   }, []);
 
@@ -72,8 +72,8 @@ export default function AiSettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // 1. Save in Supabase & LocalStorage
-      await saveAiSettingsInSupabase(settings);
+      // 1. Save in Database & LocalStorage
+      await saveAiSettingsInDB(settings);
 
       // 2. Persist to Server API Route
       const res = await fetch("/api/ai/settings", {

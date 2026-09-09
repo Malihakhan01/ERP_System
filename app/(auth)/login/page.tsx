@@ -13,7 +13,7 @@ import { AuthUser } from "@/lib/auth/auth-types";
 import { setClientAuthUser } from "@/lib/auth/auth-client";
 import { useToast } from "@/components/ui/Toast";
 
-type RoleKey = "admin" | "supervisor" | "finance" | "warehouse";
+type RoleKey = "admin" | "supervisor" | "finance" | "warehouse" | "employee";
 
 interface RoleCardOption {
   key: RoleKey;
@@ -47,7 +47,41 @@ const ROLES: RoleCardOption[] = [
     subtitle: "Inventory & dispatch",
     targetRoute: "/inventory",
   },
+  {
+    key: "employee",
+    title: "Employee Portal",
+    subtitle: "My tasks, wage slips & advances",
+    targetRoute: "/portal",
+  },
 ];
+
+const ROLE_CREDENTIALS: Record<RoleKey, { email: string; pass: string; title: string }> = {
+  admin: {
+    email: "admin@factoryos.internal",
+    pass: "factoryadmin2026",
+    title: "Super Administrator (Director)",
+  },
+  supervisor: {
+    email: "supervisor@factoryos.internal",
+    pass: "12345678",
+    title: "Production Floor Supervisor",
+  },
+  finance: {
+    email: "finance@factoryos.internal",
+    pass: "finance2026",
+    title: "Head of Accounts & Payroll",
+  },
+  warehouse: {
+    email: "warehouse@factoryos.internal",
+    pass: "warehouse2026",
+    title: "Warehouse & Inventory Lead",
+  },
+  employee: {
+    email: "EMP-2026-001",
+    pass: "emp12345",
+    title: "Floor Operator (Muhammad Rizwan)",
+  },
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -56,7 +90,7 @@ export default function LoginPage() {
   // Role Selection (default context)
   const [selectedRole, setSelectedRole] = React.useState<RoleKey>("admin");
 
-  // Form Inputs (Empty by default for real deployment & manual entry)
+  // Form Inputs - Blank by default. User enters credentials manually as standard in industry
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
@@ -65,22 +99,51 @@ export default function LoginPage() {
   // States
   const [loading, setLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
-  // When clicking a role card, select role without overwriting typed inputs
+  // When clicking a role card, activate that role without overwriting what the user typed
   const handleSelectRole = (roleKey: RoleKey) => {
     setSelectedRole(roleKey);
     setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
+  // Optional helper to populate demo credentials on explicit button click
+  const handleFillDemoCredentials = () => {
+    const creds = ROLE_CREDENTIALS[selectedRole];
+    if (creds) {
+      setEmail(creds.email);
+      setPassword(creds.pass);
+      setErrorMessage(null);
+    }
+  };
+
+  // If user types/pastes an identifier, detect and sync active role card
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    const lower = val.toLowerCase().trim();
+    if (lower.startsWith("emp") || lower.startsWith("03") || lower.startsWith("+92") || /^\d{5}-\d{7}-\d$/.test(lower) || lower.includes("rizwan")) {
+      setSelectedRole("employee");
+    } else if (lower.includes("supervisor")) setSelectedRole("supervisor");
+    else if (lower.includes("finance")) setSelectedRole("finance");
+    else if (lower.includes("warehouse")) setSelectedRole("warehouse");
+    else if (lower.includes("admin")) setSelectedRole("admin");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     const cleanEmail = email.trim();
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
-      setErrorMessage("Please enter both your Email/Operator ID and Password.");
+      const msg = selectedRole === "employee" 
+        ? "Please enter your Employee Number / Mobile and Password / PIN."
+        : "Please enter both your Email / Operator ID and Password.";
+      setErrorMessage(msg);
+      toastError("Validation Error", { description: msg });
       return;
     }
 
@@ -103,13 +166,17 @@ export default function LoginPage() {
         const loggedInUser: AuthUser = data.user;
         setClientAuthUser(loggedInUser);
 
+        const successText = `Welcome, ${loggedInUser.name}! Access verified as ${loggedInUser.roleTitle}. Redirecting...`;
+        setSuccessMessage(successText);
         success(`Welcome, ${loggedInUser.name}`, {
           description: `Authenticated as ${loggedInUser.roleTitle}`,
         });
 
         // Determine target dashboard based on validated user role
         let destination = "/dashboard";
-        if (loggedInUser.role === "production_supervisor") {
+        if (loggedInUser.role === "operator") {
+          destination = "/portal";
+        } else if (loggedInUser.role === "production_supervisor") {
           destination = "/production";
         } else if (loggedInUser.role === "finance") {
           destination = "/invoices";
@@ -125,7 +192,7 @@ export default function LoginPage() {
         setTimeout(() => {
           router.push(destination);
           router.refresh();
-        }, 300);
+        }, 500);
       } else {
         const msg = data.message || "Invalid credentials. Please verify your email and password.";
         setErrorMessage(msg);
@@ -134,7 +201,9 @@ export default function LoginPage() {
         });
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Unable to connect to authentication service.");
+      const msg = err.message || "Unable to connect to authentication service.";
+      setErrorMessage(msg);
+      toastError("Connection Error", { description: msg });
     } finally {
       setLoading(false);
     }
@@ -232,26 +301,39 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-5 p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400 shrink-0 stroke-[3]" />
+                  <span className="font-semibold">{successMessage}</span>
+                </div>
+              </div>
+            )}
+
             {/* Error Message */}
             {errorMessage && (
-              <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
-                <span>{errorMessage}</span>
+              <div className="mb-5 p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0 animate-pulse" />
+                  <span>{errorMessage}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setErrorMessage(null)}
-                  className="text-rose-400 hover:text-rose-200 ml-2 font-bold"
+                  className="text-rose-400 hover:text-rose-200 ml-2 font-bold cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
             )}
 
-            {/* Role Selection 2x2 Grid */}
+            {/* Role Selection Grid */}
             <div className="mb-6">
               <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
-                Select Role
+                Select Your Access Context
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {ROLES.map((role) => {
                   const isSelected = selectedRole === role.key;
                   return (
@@ -260,20 +342,22 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => handleSelectRole(role.key)}
                       className={`relative p-3 rounded-xl text-left transition-all cursor-pointer border ${
+                        role.key === "employee" ? "col-span-2 sm:col-span-1" : ""
+                      } ${
                         isSelected
-                          ? "bg-blue-500/10 border-blue-500 ring-1 ring-blue-500/30 text-white"
+                          ? "bg-blue-500/15 border-blue-500 ring-1 ring-blue-500/40 text-white shadow-sm"
                           : "bg-slate-900/40 border-slate-800 hover:border-slate-700 text-slate-300 hover:bg-slate-900/80"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold">{role.title}</span>
+                        <span className="text-xs font-bold text-slate-100">{role.title}</span>
                         {isSelected && (
-                          <span className="h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0">
+                          <span className="h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-500/40">
                             <Check className="h-2.5 w-2.5 stroke-[3]" />
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-[10px] text-slate-400 mt-1 leading-tight">
                         {role.subtitle}
                       </p>
                     </button>
@@ -282,31 +366,47 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Active Role Account Indicator */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 bg-slate-900/70 border border-slate-800 rounded-lg px-3.5 py-2.5 mb-4">
+              <span>Signing in as: <strong className="text-slate-100">{ROLE_CREDENTIALS[selectedRole].title}</strong></span>
+              <button
+                type="button"
+                onClick={handleFillDemoCredentials}
+                className="text-blue-400 hover:text-blue-300 font-medium hover:underline text-[10px] cursor-pointer"
+                title="Populate test credentials for this role"
+              >
+                Quick Demo Fill
+              </button>
+            </div>
+
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Email / Operator ID */}
+              {/* Identifier Input */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Email / Operator ID
+                  {selectedRole === "employee" ? "Employee Number / Mobile / CNIC" : "Email / Operator ID"}
                 </label>
                 <div className="relative">
                   <input
-                    type="email"
+                    type="text"
                     required
-                    autoComplete="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email or operator ID"
-                    className="w-full bg-[#090d16] border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    placeholder={
+                      selectedRole === "employee"
+                        ? "e.g. EMP-2026-001 or 03001234567"
+                        : "Enter your email or operator ID"
+                    }
+                    className="w-full bg-[#090d16] border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors font-mono"
                   />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password / PIN */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Password
+                  {selectedRole === "employee" ? "Security PIN / Password" : "Password"}
                 </label>
                 <div className="relative">
                   <input
@@ -315,7 +415,11 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter security password"
+                    placeholder={
+                      selectedRole === "employee"
+                        ? "Enter your security PIN or password (e.g. emp12345)"
+                        : "Enter security password"
+                    }
                     className="w-full bg-[#090d16] border border-slate-700/80 rounded-lg px-3.5 py-2.5 pr-10 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                   />
                   <button

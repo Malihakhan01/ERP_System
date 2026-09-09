@@ -31,13 +31,13 @@ import {
   MOCKUP_STYLES,
 } from "@/lib/ai-mockup-engine";
 import {
-  getAiSettingsFromSupabase,
-  saveAiSettingsInSupabase,
+  getAiSettingsFromDB,
+  saveAiSettingsInDB,
 } from "@/lib/services/ai-mockup-service";
 
 import {
-  getSystemSettingsFromSupabase,
-  saveSystemSettingsInSupabase,
+  getSystemSettingsFromDB,
+  saveSystemSettingsInDB,
   CompanySettings,
 } from "@/lib/services/settings-service";
 
@@ -79,7 +79,7 @@ export default function SettingsPage() {
   // Load Settings on Mount
   React.useEffect(() => {
     // 1. Load System Settings (Company, Factory, Advances)
-    getSystemSettingsFromSupabase().then((s) => {
+    getSystemSettingsFromDB().then((s) => {
       if (s) {
         if (s.companyName) setCompanyName(s.companyName);
         if (s.ntnNumber) setNtnNumber(s.ntnNumber);
@@ -103,10 +103,10 @@ export default function SettingsPage() {
         if (data.success && data.settings) {
           setAiSettings(data.settings);
         } else {
-          getAiSettingsFromSupabase().then((s) => setAiSettings(s));
+          getAiSettingsFromDB().then((s) => setAiSettings(s));
         }
       })
-      .catch(() => getAiSettingsFromSupabase().then((s) => setAiSettings(s)));
+      .catch(() => getAiSettingsFromDB().then((s) => setAiSettings(s)));
   }, []);
 
   const handleSaveSettings = async (e?: React.FormEvent) => {
@@ -114,7 +114,7 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       if (activeSection === "ai") {
-        await saveAiSettingsInSupabase(aiSettings);
+        await saveAiSettingsInDB(aiSettings);
         await fetch("/api/ai/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -135,7 +135,7 @@ export default function SettingsPage() {
           quotationPrefix,
           bankAccount,
         };
-        await saveSystemSettingsInSupabase(payload);
+        await saveSystemSettingsInDB(payload);
       }
 
       toast({

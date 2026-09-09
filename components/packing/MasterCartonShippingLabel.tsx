@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Printer, X, Tag, Truck } from "lucide-react";
 import { PackingCartonRecord } from "@/lib/services/packing-service";
 
@@ -15,9 +16,32 @@ export function MasterCartonShippingLabel({
   isOpen,
   onClose,
 }: MasterCartonShippingLabelProps) {
-  if (!isOpen || !carton) return null;
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // When modal is open, set print class and escape listener
+  React.useEffect(() => {
+    if (!isOpen) return;
+    document.body.classList.add("print-shipping-label-active");
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.classList.remove("print-shipping-label-active");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !carton || !mounted) return null;
 
   const handlePrint = () => {
+    document.body.classList.add("print-shipping-label-active");
     window.print();
   };
 
@@ -28,8 +52,14 @@ export function MasterCartonShippingLabel({
     ? Object.entries(carton.sizeBreakdown)
     : [["S", 6], ["M", 12], ["L", 6]];
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:bg-white print:static print:block print:inset-auto">
+  return createPortal(
+    <div
+      id="shipping-label-print-portal"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:bg-white print:static print:block print:inset-auto print:w-full print:m-0"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-6 print:shadow-none print:border-none print:rounded-none print:m-0 print:w-full">
         
         {/* Top Control Bar (Hidden in Print) */}
@@ -186,6 +216,7 @@ export function MasterCartonShippingLabel({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

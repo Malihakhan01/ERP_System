@@ -1,6 +1,6 @@
 /**
  * FactoryOS Garment ERP — MySQL 8 Database Connection & Query Engine
- * Fully replaces Supabase with MySQL 8 (InnoDB, utf8mb4_unicode_ci).
+ * Fully replaces Database with MySQL 8 (InnoDB, utf8mb4_unicode_ci).
  */
 
 import mysql from "mysql2/promise";

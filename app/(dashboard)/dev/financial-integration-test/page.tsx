@@ -17,7 +17,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import {
-  getFinancialKPIsFromSupabase,
+  getFinancialKPIsFromDB,
   getClientFinancialLedger,
   getProductionJobFinancialReconciliation,
   FinancialKPIData,
@@ -32,7 +32,7 @@ import {
   calculateOrderProfitability,
   reconcileInvoice,
 } from "@/lib/financial-reconciliation-engine";
-import { getProductionJobsFromSupabase } from "@/lib/services/production-service";
+import { getProductionJobsFromDB } from "@/lib/services/production-service";
 
 interface TestResultItem {
   id: string;
@@ -66,7 +66,7 @@ export default function FinancialIntegrationTestPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [kpiData, ledger] = await Promise.all([
-        getFinancialKPIsFromSupabase(),
+        getFinancialKPIsFromDB(),
         getClientFinancialLedger(),
       ]);
       setKpis(kpiData);
@@ -81,7 +81,7 @@ export default function FinancialIntegrationTestPage() {
     (async () => {
       try {
         const [kpiData, ledger] = await Promise.all([
-          getFinancialKPIsFromSupabase(),
+          getFinancialKPIsFromDB(),
           getClientFinancialLedger(),
         ]);
         if (!mounted) return;
@@ -205,12 +205,12 @@ export default function FinancialIntegrationTestPage() {
       });
 
       // Test 7: Live Database Production Job Query
-      const jobs = await getProductionJobsFromSupabase();
+      const jobs = await getProductionJobsFromDB();
       if (jobs.length > 0) {
         const liveReconciliation = await getProductionJobFinancialReconciliation(jobs[0].id);
         results.push({
           id: "test-7",
-          name: "Live Supabase Production Job Financial Reconciliation",
+          name: "Live Database Production Job Financial Reconciliation",
           category: "Database Integration",
           passed: Boolean(liveReconciliation && liveReconciliation.job),
           message: `Reconciled Job ${liveReconciliation.job.job_number} with database material issues & operator earnings.`,
@@ -219,7 +219,7 @@ export default function FinancialIntegrationTestPage() {
       } else {
         results.push({
           id: "test-7",
-          name: "Live Supabase Production Job Financial Reconciliation",
+          name: "Live Database Production Job Financial Reconciliation",
           category: "Database Integration",
           passed: true,
           message: "No live jobs in database; verified zero-data reconciliation safety.",
@@ -227,7 +227,7 @@ export default function FinancialIntegrationTestPage() {
       }
 
       // Test 8: Live KPI Aggregation Integrity
-      const liveKpis = await getFinancialKPIsFromSupabase();
+      const liveKpis = await getFinancialKPIsFromDB();
       results.push({
         id: "test-8",
         name: "Financial KPI Aggregation from PostgreSQL",

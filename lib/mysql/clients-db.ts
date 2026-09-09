@@ -1,6 +1,6 @@
 /**
  * FactoryOS Garment ERP — Clients MySQL 8 Repository
- * Replaces Supabase clients-db with live MySQL CRUD.
+ * Replaces Database clients-db with live MySQL CRUD.
  */
 
 import { executeQuery, MySQL } from "./db";
@@ -48,7 +48,7 @@ export async function getClientsFromMySQL(): Promise<ClientRecord[]> {
       },
 
       commercialInfo: {
-        currency: (r.currency || "USD") as ClientCurrency,
+        currency: (r.currency || "PKR") as ClientCurrency,
         paymentTerms: r.payment_terms || "30% Advance TT / 70% LC at Sight",
         incoterms: parsedNotes.incoterms || "FOB Sialkot",
         creditLimit: Number(r.credit_limit) || 50000,
@@ -142,7 +142,7 @@ export async function createClientInMySQL(data: Partial<ClientRecord>): Promise<
     contact_person: data.primaryContact?.name || "Primary Contact",
     email: data.primaryContact?.email || "buyer@brand.com",
     phone: data.primaryContact?.phone || "+44 20 7946 0912",
-    currency: data.commercialInfo?.currency || "USD",
+    currency: data.commercialInfo?.currency || "PKR",
     credit_limit: data.commercialInfo?.creditLimit || 50000,
     payment_terms: data.commercialInfo?.paymentTerms || "30% Advance TT / 70% LC at Sight",
     tax_number: data.commercialInfo?.taxVatId || null,

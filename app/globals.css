@@ -134,6 +134,130 @@ body {
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Specific Mode: Tech Pack Spec Sheet Isolated Print */
+  body.print-techpack-active > *:not(#tech-pack-print-portal) {
+    display: none !important;
+  }
+
+  body.print-techpack-active #tech-pack-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body.print-techpack-active #tech-pack-print-portal .no-print {
+    display: none !important;
+  }
+
+  body.print-techpack-active #tech-pack-print-portal .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Specific Mode: 4x6 Master Carton Shipping Label Isolated Print */
+  body.print-shipping-label-active > *:not(#shipping-label-print-portal) {
+    display: none !important;
+  }
+
+  body.print-shipping-label-active #shipping-label-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body.print-shipping-label-active #shipping-label-print-portal .no-print {
+    display: none !important;
+  }
+
+  body.print-shipping-label-active #shipping-label-print-portal .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Specific Mode: Modal Document Isolated Print (Advances, Salaries, Employees) */
+  body.print-document-active > *:not(#document-print-portal, dialog[open], main) {
+    display: none !important;
+  }
+
+  body.print-document-active main {
+    display: block !important;
+  }
+
+  body.print-document-active main > *:not(dialog[open]) {
+    display: none !important;
+  }
+
+  body.print-document-active dialog[open] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  body.print-document-active dialog[open]::backdrop {
+    display: none !important;
+  }
+
+  body.print-document-active dialog[open] .no-print,
+  body.print-document-active .no-print {
+    display: none !important;
+  }
+
+  body.print-document-active dialog[open] .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Specific Mode: Reports Document Isolated Print */
+  body.print-report-active aside,
+  body.print-report-active header,
+  body.print-report-active nav,
+  body.print-report-active .no-print,
+  body.print-report-active button {
+    display: none !important;
+  }
+
+  body.print-report-active {
+    background: #ffffff !important;
+  }
+
+  body.print-report-active main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  body.print-report-active .animate-in {
+    animation: none !important;
+  }
+
+  body.print-report-active .shadow-xs,
+  body.print-report-active .shadow-sm,
+  body.print-report-active .shadow-md {
+    box-shadow: none !important;
   }
 
   main {

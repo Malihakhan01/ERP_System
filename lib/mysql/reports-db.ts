@@ -189,7 +189,7 @@ export async function getMaterialConsumptionReportFromMySQL(
       );
 
       return invItems.map((item) => {
-        const stdQty = Number(item.total_stock || 100);
+        const stdQty = Number((Number(item.available_stock || 0) + Number(item.allocated_stock || 0)) || 100);
         const issued = Number(item.allocated_stock || stdQty * 0.9);
         const returned = 0;
         const unitCost = Number(item.unit_cost || 5);
@@ -259,10 +259,10 @@ export async function getInventoryReportFromMySQL(): Promise<InventoryReportRow[
     );
 
     return rows.map((row) => {
-      const totalStock = Number(row.total_stock || 0);
       const availableStock = Number(row.available_stock || 0);
       const allocatedStock = Number(row.allocated_stock || 0);
-      const minReorder = Number(row.min_reorder_level || 100);
+      const totalStock = availableStock + allocatedStock;
+      const minReorder = Number(row.reorder_point || row.min_reorder_level || 100);
       const unitCost = Number(row.unit_cost || 0);
       const totalValuation = Number((totalStock * unitCost).toFixed(2));
 
@@ -306,12 +306,34 @@ export async function getPurchaseReportFromMySQL(
   filters?: ReportFilterOptions
 ): Promise<PurchaseReportRow[]> {
   try {
+    const purchases = await executeQuery<any>(
+      "SELECT * FROM `purchases` WHERE `is_archived` = 0 ORDER BY `order_date` DESC, `id` DESC LIMIT 50"
+    );
+
+    if (purchases && purchases.length > 0) {
+      return purchases.map((p) => ({
+        poId: String(p.id),
+        poNumber: p.po_number || `PO-${p.id}`,
+        supplierName: p.supplier || "Raw Material Supplier",
+        materialName: p.material || "Textile Raw Material",
+        orderedQty: Number(p.quantity || 0),
+        receivedQty: Number(p.quantity || 0),
+        pendingQty: 0,
+        unitCost: Number(p.rate || 0),
+        totalPurchaseValue: Number(p.total_amount || 0),
+        currency: "PKR",
+        status: p.status || "confirmed",
+        orderDate: p.order_date ? new Date(p.order_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+        expectedDate: p.expected_date ? new Date(p.expected_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      }));
+    }
+
     const rows = await executeQuery<any>(
       "SELECT * FROM `inventory_items` WHERE `is_archived` = 0 ORDER BY `created_at` DESC LIMIT 20"
     );
 
     return rows.map((row, idx) => {
-      const orderedQty = Number(row.total_stock || 500);
+      const orderedQty = Number((Number(row.available_stock || 0) + Number(row.allocated_stock || 0)) || 500);
       const unitCost = Number(row.unit_cost || 8.5);
       const totalValue = Number((orderedQty * unitCost).toFixed(2));
 
@@ -325,7 +347,7 @@ export async function getPurchaseReportFromMySQL(
         pendingQty: 0,
         unitCost,
         totalPurchaseValue: totalValue,
-        currency: "USD",
+        currency: "PKR",
         status: "received",
         orderDate: new Date(Date.now() - (idx + 1) * 7 * 86400000).toISOString().split("T")[0],
         expectedDate: new Date(Date.now() - (idx + 1) * 2 * 86400000).toISOString().split("T")[0],
@@ -504,7 +526,7 @@ export async function getOrderProfitabilityReportFromMySQL(
         invoicedAmount: contractRevenue,
         paidAmount,
         outstandingBalance,
-        currency: row.currency || "USD",
+        currency: row.currency || "PKR",
         status: row.status,
       };
     });
@@ -549,7 +571,7 @@ export async function getClientReceivableReportFromMySQL(): Promise<ClientReceiv
         totalOutstanding: receivables.outstanding,
         overdueBalance: Number((receivables.outstanding * 0.15).toFixed(2)),
         collectionRatePercent: receivables.collectionRate,
-        currency: row.currency || "USD",
+        currency: row.currency || "PKR",
       };
     });
   } catch (error) {
@@ -603,7 +625,7 @@ export async function getInvoiceAgingReportFromMySQL(
         daysOverdue: aging.daysOverdue,
         agingBucket: aging.agingBucket,
         status: balanceDue === 0 ? "settled" : "pending",
-        currency: row.currency || "USD",
+        currency: row.currency || "PKR",
       };
     });
   } catch (error) {
@@ -754,7 +776,7 @@ export async function getExecutiveFinancialSummaryFromMySQL(
 
     // 2. Inventory Asset Valuation
     const invSums = await executeQuery<any>(
-      "SELECT COALESCE(SUM(total_stock * unit_cost), 0) AS total_inventory_val FROM `inventory_items` WHERE `is_archived` = 0"
+      "SELECT COALESCE(SUM((available_stock + allocated_stock) * unit_cost), 0) AS total_inventory_val FROM `inventory_items` WHERE `is_archived` = 0"
     );
     const totalInventoryValuation = Number(invSums[0]?.total_inventory_val || 0);
 
@@ -771,10 +793,15 @@ export async function getExecutiveFinancialSummaryFromMySQL(
     }
 
     // 4. Material Issued Cost
-    const issueSums = await executeQuery<any>(
-      "SELECT COALESCE(SUM(total_cost), 0) AS total_issue_cost FROM `production_material_issues`"
-    );
-    let totalMaterialCost = Number(issueSums[0]?.total_issue_cost || 0);
+    let totalMaterialCost = 0;
+    try {
+      const issueSums = await executeQuery<any>(
+        "SELECT COALESCE(SUM(total_cost), 0) AS total_issue_cost FROM `production_material_issues`"
+      );
+      totalMaterialCost = Number(issueSums[0]?.total_issue_cost || 0);
+    } catch {
+      totalMaterialCost = 0;
+    }
     if (totalMaterialCost === 0) {
       // derive from allocated stock in inventory
       const allocSums = await executeQuery<any>(
@@ -783,10 +810,33 @@ export async function getExecutiveFinancialSummaryFromMySQL(
       totalMaterialCost = Number(allocSums[0]?.alloc_val || totalInventoryValuation * 0.35);
     }
 
-    // Commercial Collections & Receivables
-    const totalInvoiced = totalRevenue;
-    const totalCollected = Number((totalRevenue * 0.45).toFixed(2));
-    const totalOutstanding = Number((totalRevenue - totalCollected).toFixed(2));
+    // Commercial Collections & Receivables from real Invoices
+    let totalInvoiced = totalRevenue;
+    let totalCollected = Number((totalRevenue * 0.45).toFixed(2));
+    let totalOutstanding = Number((totalRevenue - totalCollected).toFixed(2));
+    try {
+      const invoiceSums = await executeQuery<any>(
+        "SELECT COALESCE(SUM(grand_total), 0) AS total_invoiced, COALESCE(SUM(paid_amount), 0) AS total_collected, COALESCE(SUM(balance_due), 0) AS total_outstanding FROM `invoices` WHERE `is_archived` = 0"
+      );
+      if (invoiceSums && invoiceSums.length > 0 && Number(invoiceSums[0]?.total_invoiced) > 0) {
+        totalInvoiced = Number(invoiceSums[0].total_invoiced);
+        totalCollected = Number(invoiceSums[0].total_collected);
+        totalOutstanding = Number(invoiceSums[0].total_outstanding);
+      }
+    } catch (invErr) {
+      console.error("Error fetching invoice sums for executive summary:", invErr);
+    }
+
+    // Pending dispatches from packing_cartons
+    let pendingDispatchesCount = 0;
+    try {
+      const stagedCartons = await executeQuery<any>(
+        "SELECT COUNT(*) AS cnt FROM `packing_cartons` WHERE `status` IN ('packed', 'dispatch_ready', 'sealed', 'loaded')"
+      );
+      pendingDispatchesCount = Number(stagedCartons[0]?.cnt || 0);
+    } catch {
+      pendingDispatchesCount = 1;
+    }
 
     // Standard Garment Overhead: ~8% of revenue or factory operating baseline
     const totalOverheadCost = Number((totalRevenue * 0.08).toFixed(2));
@@ -811,7 +861,7 @@ export async function getExecutiveFinancialSummaryFromMySQL(
       averageGrossMarginPercent,
       totalDispatchedValue: Number((totalRevenue * 0.6).toFixed(2)),
       activeOrdersCount,
-      pendingDispatchesCount: 3,
+      pendingDispatchesCount,
       averageFloorEfficiency: 86.4,
     };
   } catch (error) {

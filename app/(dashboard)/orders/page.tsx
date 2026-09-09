@@ -58,12 +58,12 @@ import {
 } from "@/lib/clients-engine";
 import { CURRENCY_SYMBOLS } from "@/lib/costing-engine";
 import {
-  getOrdersFromSupabase,
-  createOrderInSupabase,
-  updateOrderInSupabase,
-  deleteOrderInSupabase,
+  getOrdersFromDB,
+  createOrderInDB,
+  updateOrderInDB,
+  deleteOrderInDB,
 } from "@/lib/services/orders-service";
-import { getProductsFromSupabase, GarmentProduct } from "@/lib/services/products-service";
+import { getProductsFromDB, GarmentProduct } from "@/lib/services/products-service";
 
 const STATUS_CONFIG: Record<
   OrderStatus,
@@ -207,8 +207,8 @@ export default function OrdersPage() {
     setLoadingOrders(true);
     try {
       const [ordData, prods] = await Promise.all([
-        getOrdersFromSupabase().catch(() => []),
-        getProductsFromSupabase().catch(() => []),
+        getOrdersFromDB().catch(() => []),
+        getProductsFromDB().catch(() => []),
       ]);
 
       if (ordData && ordData.length > 0) {
@@ -231,7 +231,7 @@ export default function OrdersPage() {
     }
   }, [success, toastError]);
 
-  // Sync with Supabase on mount
+  // Sync with Database on mount
   React.useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -307,7 +307,7 @@ export default function OrdersPage() {
   const [requestedShipDate, setRequestedShipDate] = React.useState("");
   const [productionStartDate, setProductionStartDate] = React.useState("");
   const [orderType, setOrderType] = React.useState<OrderType>("Export Bulk Production");
-  const [currency, setCurrency] = React.useState<CommercialCurrency>("USD");
+  const [currency, setCurrency] = React.useState<CommercialCurrency>("PKR");
   const [priority, setPriority] = React.useState<OrderPriority>("normal");
   const [orderStatus, setOrderStatus] = React.useState<OrderStatus>("confirmed");
   const [productionStage, setProductionStage] = React.useState<ProductionStage>("Order Confirmed");
@@ -379,7 +379,7 @@ export default function OrdersPage() {
     setRequestedShipDate(delivery);
     setProductionStartDate(prodStart);
     setOrderType("Export Bulk Production");
-    setCurrency(defaultClient.commercialInfo.currency || "USD");
+    setCurrency(defaultClient.commercialInfo.currency || "PKR");
     setPriority("normal");
     setOrderStatus("confirmed");
     setProductionStage("Order Confirmed");
@@ -788,7 +788,7 @@ export default function OrdersPage() {
 
       const updated = [orderToSave, ...orders];
       saveOrders(updated);
-      createOrderInSupabase(orderToSave).catch((err) => console.error(err));
+      createOrderInDB(orderToSave).catch((err) => console.error(err));
       success(asDraft ? "Draft Order Saved" : "Sales Order Confirmed", {
         description: asDraft
           ? `Saved draft contract ${orderToSave.orderNumber} for ${clientObj.companyName}.`
@@ -797,7 +797,7 @@ export default function OrdersPage() {
     }
 
     if (editingInternalId && activeOrder) {
-      updateOrderInSupabase(orderToSave).catch((err) => console.error(err));
+      updateOrderInDB(orderToSave).catch((err) => console.error(err));
     }
 
     setSelectedOrderId(orderToSave.id);
@@ -852,7 +852,7 @@ export default function OrdersPage() {
 
     const updated = orders.map((o) => (o.id === order.id ? updatedOrder : o));
     saveOrders(updated);
-    updateOrderInSupabase(updatedOrder).catch((err) => console.error(err));
+    updateOrderInDB(updatedOrder).catch((err) => console.error(err));
     success("Production Stage Updated", {
       description: `${order.orderNumber} advanced to ${newStage}.`,
     });
@@ -871,7 +871,7 @@ export default function OrdersPage() {
     if (!orderToDelete) return;
     const updated = orders.filter((o) => o.id !== orderToDelete.id);
     saveOrders(updated);
-    deleteOrderInSupabase(orderToDelete.id, orderToDelete.orderNumber).catch((err) => console.error(err));
+    deleteOrderInDB(orderToDelete.id, orderToDelete.orderNumber).catch((err) => console.error(err));
     success("Order Removed", {
       description: `Sales order ${orderToDelete.orderNumber} was permanently deleted.`,
     });
@@ -892,7 +892,7 @@ export default function OrdersPage() {
     };
     const updated = orders.map((o) => (o.id === archiveModalOrder.id ? updatedOrder : o));
     saveOrders(updated);
-    updateOrderInSupabase(updatedOrder).catch((err) => console.error(err));
+    updateOrderInDB(updatedOrder).catch((err) => console.error(err));
     success("Sales Order Archived", {
       description: `Order ${archiveModalOrder.orderNumber} archived. Historical accounting and production tracking data preserved.`,
     });
@@ -1090,10 +1090,10 @@ export default function OrdersPage() {
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as CommercialCurrency)}
                       options={[
+                        { value: "PKR", label: "PKR (Rs) — Pakistani Rupee" },
                         { value: "USD", label: "USD ($) — US Dollar" },
                         { value: "EUR", label: "EUR (€) — Euro" },
                         { value: "GBP", label: "GBP (£) — British Pound" },
-                        { value: "PKR", label: "PKR (₨) — Pakistani Rupee" },
                         { value: "AED", label: "AED (AED) — UAE Dirham" },
                       ]}
                     />
@@ -1284,7 +1284,7 @@ export default function OrdersPage() {
                   </FormField>
 
                   {/* Real-time Commercial Total Display */}
-                  <div className="col-span-2 p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="col-span-full sm:col-span-2 w-full p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Subtotal:</span>
                       <p className="text-sm font-bold text-slate-900 mt-0.5">
@@ -1388,8 +1388,8 @@ export default function OrdersPage() {
                       value={incoterms}
                       onChange={(e) => setIncoterms(e.target.value)}
                       options={[
-                        { value: "FOB Sialkot", label: "FOB Sialkot / Lahore" },
-                        { value: "FOB Karachi Port", label: "FOB Karachi Port" },
+                        { value: "FOB Sialkot", label: "FOB Sialkot Dry Port (SDPT)" },
+                        { value: "FOB Sialkot Dry Port", label: "FOB Sialkot Dry Port / Sambrial" },
                         { value: "CIF London", label: "CIF Destination Port" },
                         { value: "DDP Warehouse", label: "DDP Buyer Warehouse" },
                         { value: "EXW Factory", label: "EXW Factory" },
@@ -2047,7 +2047,7 @@ export default function OrdersPage() {
               />
               <StatCard
                 label="Total Order Value"
-                value={`$${(totalOrderValueSum / 1000).toFixed(1)}k`}
+                value={`Rs ${(totalOrderValueSum / 1000).toFixed(1)}k`}
                 sub="Active pipeline revenue"
                 icon={<DollarSign className="h-5 w-5" />}
                 iconColor="bg-purple-50 text-purple-600"

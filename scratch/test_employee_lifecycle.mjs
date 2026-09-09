@@ -12,7 +12,7 @@ import {
 import {
   mapEmployeeRecordToRow,
   mapRowToEmployeeRecord,
-} from "../lib/supabase/employees-db.ts";
+} from "../lib/services/-service.ts";
 
 let passed = 0;
 let failed = 0;
@@ -91,13 +91,13 @@ assert(candidate.personalInfo.phoneCountryCode === "+92", "Test 05: phone_countr
 assert(candidate.personalInfo.phoneNumber === "3001234567", "Test 06: phone_number stored separately as 3001234567");
 assert(candidate.personalInfo.phone === "+92 3001234567", "Test 07: full phone formatted cleanly");
 
-// 5. Supabase DB Row Mapping Verification
+// 5. Database DB Row Mapping Verification
 const pgRow = mapEmployeeRecordToRow(candidate);
-assert(pgRow.full_name === "Test Worker", "Test 08: Supabase row full_name matches");
-assert(pgRow.department === "Cutting", "Test 09: Supabase row department matches");
-assert(pgRow.designation === "Operator", "Test 10: Supabase row designation matches");
-assert(pgRow.phone_country_code === "+92", "Test 11: Supabase row phone_country_code mapped");
-assert(pgRow.phone_number === "3001234567", "Test 12: Supabase row phone_number mapped");
+assert(pgRow.full_name === "Test Worker", "Test 08: Database row full_name matches");
+assert(pgRow.department === "Cutting", "Test 09: Database row department matches");
+assert(pgRow.designation === "Operator", "Test 10: Database row designation matches");
+assert(pgRow.phone_country_code === "+92", "Test 11: Database row phone_country_code mapped");
+assert(pgRow.phone_number === "3001234567", "Test 12: Database row phone_number mapped");
 
 // 6. DB Row to Domain Model Mapping Verification
 const mappedBack = mapRowToEmployeeRecord(pgRow);

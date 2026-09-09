@@ -33,7 +33,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import type { QAInspectionRecord, QADefectRecord, QAReworkRecord } from "@/lib/services/qa-service";
-import { getProductionJobsFromSupabase, ProductionJobRecord } from "@/lib/services/production-service";
+import { getProductionJobsFromDB, ProductionJobRecord } from "@/lib/services/production-service";
 import { TabletDefectLogger } from "@/components/qa/TabletDefectLogger";
 import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
@@ -156,7 +156,7 @@ export default function QAPage() {
       if (inspJson.success) setInspections(inspJson.data || []);
 
       // 2. Fetch Production Jobs
-      const jobs = await getProductionJobsFromSupabase();
+      const jobs = await getProductionJobsFromDB();
       setProductionJobs(jobs || []);
 
       // 3. Fetch QA Metrics
@@ -413,6 +413,7 @@ export default function QAPage() {
                 <FormSection
                   title="1. Work Order & Inspection Scope"
                   description="Select the floor work order and inspection checkpoint"
+                  gridClassName="block space-y-4 w-full"
                 >
                   <FormField label="Select Production Work Order" required>
                     <select

@@ -22,16 +22,16 @@ import {
 import {
   DispatchRecord,
   DispatchQueueItem,
-  getDispatchRecordsFromSupabase,
-  getDispatchQueueFromSupabase,
-  createDispatchInSupabase,
-  markDispatchLoadedInSupabase,
-  completeDispatchInSupabase,
+  getDispatchRecordsFromDB,
+  getDispatchQueueFromDB,
+  createDispatchInDB,
+  markDispatchLoadedInDB,
+  completeDispatchInDB,
   resolveDispatchBarcode,
 } from "@/lib/services/dispatch-service";
-import { getProductionJobsFromSupabase } from "@/lib/services/production-service";
-import { getPackingCartonsFromSupabase, createPackingCartonInSupabase, createPackingRecordInSupabase } from "@/lib/services/packing-service";
-import { getTrackingRecordsFromSupabase } from "@/lib/services/tracking-service";
+import { getProductionJobsFromDB } from "@/lib/services/production-service";
+import { getPackingCartonsFromDB, createPackingCartonInDB, createPackingRecordInDB } from "@/lib/services/packing-service";
+import { getTrackingRecordsFromDB } from "@/lib/services/tracking-service";
 
 interface TestResultItem {
   id: string;
@@ -56,8 +56,8 @@ export default function DispatchIntegrationTestPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [records, queue] = await Promise.all([
-        getDispatchRecordsFromSupabase(),
-        getDispatchQueueFromSupabase(),
+        getDispatchRecordsFromDB(),
+        getDispatchQueueFromDB(),
       ]);
       setDispatches(records);
       setDispatchQueue(queue);
@@ -79,7 +79,7 @@ export default function DispatchIntegrationTestPage() {
 
     try {
       // Step 1: Ensure a test production job & packing carton exist
-      const jobs = await getProductionJobsFromSupabase();
+      const jobs = await getProductionJobsFromDB();
       const targetJob = jobs[0] || {
         id: `job_dsp_test_${timestamp}`,
         jobNumber: `PRD-DSP-${timestamp.toString().slice(-4)}`,
@@ -87,13 +87,13 @@ export default function DispatchIntegrationTestPage() {
         totalQaPassedQuantity: 500,
       };
 
-      const packingRec = await createPackingRecordInSupabase({
+      const packingRec = await createPackingRecordInDB({
         productionJobId: targetJob.id,
         qaApprovedQuantity: 500,
         packerName: "Test Lead",
       });
 
-      const carton = await createPackingCartonInSupabase({
+      const carton = await createPackingCartonInDB({
         packingRecordId: packingRec.id,
         productionJobId: targetJob.id,
         totalUnitsInCarton: 50,
@@ -103,7 +103,7 @@ export default function DispatchIntegrationTestPage() {
       });
 
       // Test 1: Dispatch Queue Resolution
-      const queue = await getDispatchQueueFromSupabase();
+      const queue = await getDispatchQueueFromDB();
       results.push({
         id: "test-1",
         name: "Packed Dispatch Queue Resolution",
@@ -114,7 +114,7 @@ export default function DispatchIntegrationTestPage() {
       });
 
       // Test 2: Create Dispatch Order
-      const newDispatch = await createDispatchInSupabase({
+      const newDispatch = await createDispatchInDB({
         productionJobId: targetJob.id,
         cartonIds: [carton.id],
         consigneeName: "Global Sportswear USA Inc.",
@@ -138,7 +138,7 @@ export default function DispatchIntegrationTestPage() {
       // Test 3: Duplicate Carton Prevention Guard
       let duplicateCartonBlocked = false;
       try {
-        await createDispatchInSupabase({
+        await createDispatchInDB({
           productionJobId: targetJob.id,
           cartonIds: [carton.id], // Same carton
           consigneeName: "Another Buyer",
@@ -162,7 +162,7 @@ export default function DispatchIntegrationTestPage() {
       });
 
       // Test 4: Container Loading
-      const loaded = await markDispatchLoadedInSupabase(
+      const loaded = await markDispatchLoadedInDB(
         newDispatch.id,
         "Diagnostic Dispatch Lead",
         "EX-CONT-40FT-TEST",
@@ -180,7 +180,7 @@ export default function DispatchIntegrationTestPage() {
       });
 
       // Test 5: Tracking Gate 8 Synchronization
-      const trackingList = await getTrackingRecordsFromSupabase();
+      const trackingList = await getTrackingRecordsFromDB();
       results.push({
         id: "test-5",
         name: "Tracking Milestone Gate 8 (Warehouse Staging & Dispatch Loading) Linkage",
@@ -191,7 +191,7 @@ export default function DispatchIntegrationTestPage() {
       });
 
       // Test 6: Complete Final Dispatch & Handover
-      const completed = await completeDispatchInSupabase(
+      const completed = await completeDispatchInDB(
         newDispatch.id,
         "Export Logistics Manager",
         `AWB-EXP-${timestamp.toString().slice(-6)}`
@@ -219,14 +219,14 @@ export default function DispatchIntegrationTestPage() {
 
       // Test 8: Readback & Persistence Integrity
       await loadData();
-      const readback = (await getDispatchRecordsFromSupabase()).find((d) => d.id === newDispatch.id);
+      const readback = (await getDispatchRecordsFromDB()).find((d) => d.id === newDispatch.id);
 
       results.push({
         id: "test-8",
         name: "Database Readback & Persistence Integrity",
         category: "Persistence",
         passed: Boolean(readback && readback.dispatchNumber === newDispatch.dispatchNumber),
-        message: `Dispatch record ${readback?.dispatchNumber} verified intact from Supabase readback.`,
+        message: `Dispatch record ${readback?.dispatchNumber} verified intact from Database readback.`,
         details: { id: readback?.id, number: readback?.dispatchNumber },
       });
 

@@ -21,18 +21,18 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { getOrdersFromSupabase } from "@/lib/services/orders-service";
+import { getOrdersFromDB } from "@/lib/services/orders-service";
 import type { OrderRecord } from "@/lib/orders-engine";
-import { getProductsFromSupabase, GarmentProduct } from "@/lib/services/products-service";
-import { getClientsFromSupabase } from "@/lib/services/clients-service";
+import { getProductsFromDB, GarmentProduct } from "@/lib/services/products-service";
+import { getClientsFromDB } from "@/lib/services/clients-service";
 import type { ClientRecord } from "@/lib/clients-engine";
-import { getCostEstimatesFromSupabase } from "@/lib/services/costing-service";
+import { getCostEstimatesFromDB } from "@/lib/services/costing-service";
 import type { CostEstimateRecord } from "@/lib/costing-engine";
 import {
-  getProductionJobsFromSupabase,
-  getProductionJobByIdFromSupabase,
-  createProductionJobInSupabase,
-  deleteProductionJobInSupabase,
+  getProductionJobsFromDB,
+  getProductionJobByIdFromDB,
+  createProductionJobInDB,
+  deleteProductionJobInDB,
   ProductionJobRecord,
 } from "@/lib/services/production-service";
 
@@ -65,7 +65,7 @@ export default function ProductionIntegrationTestPage() {
       name: "1. Confirmed Orders Fetch",
       category: "Data Integrity",
       status: "idle",
-      message: "Ready to test retrieving confirmed orders from Supabase PostgreSQL.",
+      message: "Ready to test retrieving confirmed orders from Database PostgreSQL.",
     },
     {
       id: "verify_order_links",
@@ -84,16 +84,16 @@ export default function ProductionIntegrationTestPage() {
     {
       id: "create_production_job",
       name: "4. Create Test Production Job",
-      category: "Supabase Write",
+      category: "Database Write",
       status: "idle",
       message: "Insert a valid production job using confirmed order references.",
     },
     {
       id: "verify_job_persistence",
       name: "5. Verify Production Job Persistence & Readback",
-      category: "Supabase Read",
+      category: "Database Read",
       status: "idle",
-      message: "Query the saved job directly from Supabase by UUID to verify persistence.",
+      message: "Query the saved job directly from Database by UUID to verify persistence.",
     },
     {
       id: "duplicate_prevention",
@@ -118,11 +118,11 @@ export default function ProductionIntegrationTestPage() {
     setLoadingInitial(true);
     try {
       const [ordList, prodList, cltList, cstList, prdJobList] = await Promise.all([
-        getOrdersFromSupabase(),
-        getProductsFromSupabase(),
-        getClientsFromSupabase(),
-        getCostEstimatesFromSupabase(),
-        getProductionJobsFromSupabase(),
+        getOrdersFromDB(),
+        getProductsFromDB(),
+        getClientsFromDB(),
+        getCostEstimatesFromDB(),
+        getProductionJobsFromDB(),
       ]);
 
       setOrders(ordList);
@@ -137,7 +137,7 @@ export default function ProductionIntegrationTestPage() {
       }
     } catch (err) {
       console.error("Error loading master data for integration test:", err);
-      toastError("Failed to fetch Supabase records for test page");
+      toastError("Failed to fetch Database records for test page");
     } finally {
       setLoadingInitial(false);
     }
@@ -157,7 +157,7 @@ export default function ProductionIntegrationTestPage() {
     updateTestStatus("fetch_confirmed_orders", { status: "running", message: "Querying public.orders..." });
     const start = performance.now();
     try {
-      const liveOrders = await getOrdersFromSupabase();
+      const liveOrders = await getOrdersFromDB();
       const confirmed = liveOrders.filter((o) => o.orderStatus !== "draft" && !o.isArchived);
       const duration = Math.round(performance.now() - start);
 
@@ -173,7 +173,7 @@ export default function ProductionIntegrationTestPage() {
 
       updateTestStatus("fetch_confirmed_orders", {
         status: "pass",
-        message: `Successfully fetched ${confirmed.length} confirmed order(s) from Supabase PostgreSQL.`,
+        message: `Successfully fetched ${confirmed.length} confirmed order(s) from Database PostgreSQL.`,
         durationMs: duration,
         details: { confirmedCount: confirmed.length, sampleOrder: confirmed[0].orderNumber },
       });
@@ -283,7 +283,7 @@ export default function ProductionIntegrationTestPage() {
 
   // TEST 4: Create Production Job
   const runTest4 = async (): Promise<boolean> => {
-    updateTestStatus("create_production_job", { status: "running", message: "Inserting test production job into Supabase..." });
+    updateTestStatus("create_production_job", { status: "running", message: "Inserting test production job into Database..." });
     const start = performance.now();
     try {
       const selected = orders.find((o) => o.id === selectedOrderId);
@@ -334,7 +334,7 @@ export default function ProductionIntegrationTestPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      const saved = await createProductionJobInSupabase(testJob);
+      const saved = await createProductionJobInDB(testJob);
       setCreatedTestJobId(saved.id);
 
       const duration = Math.round(performance.now() - start);
@@ -357,18 +357,18 @@ export default function ProductionIntegrationTestPage() {
 
   // TEST 5: Verify Job Persistence & Readback
   const runTest5 = async (): Promise<boolean> => {
-    updateTestStatus("verify_job_persistence", { status: "running", message: "Fetching newly created job from Supabase..." });
+    updateTestStatus("verify_job_persistence", { status: "running", message: "Fetching newly created job from Database..." });
     const start = performance.now();
     try {
       if (!createdTestJobId) {
         throw new Error("No test job was created in Test 4. Run Test 4 first.");
       }
 
-      const fetched = await getProductionJobByIdFromSupabase(createdTestJobId);
+      const fetched = await getProductionJobByIdFromDB(createdTestJobId);
       const duration = Math.round(performance.now() - start);
 
       if (!fetched) {
-        throw new Error(`Production Job with ID ${createdTestJobId} could not be read back from Supabase.`);
+        throw new Error(`Production Job with ID ${createdTestJobId} could not be read back from Database.`);
       }
 
       updateTestStatus("verify_job_persistence", {
@@ -397,13 +397,13 @@ export default function ProductionIntegrationTestPage() {
         throw new Error("Run Test 4 first to establish an existing test job.");
       }
 
-      const existing = await getProductionJobByIdFromSupabase(createdTestJobId);
+      const existing = await getProductionJobByIdFromDB(createdTestJobId);
       if (!existing) throw new Error("Existing job not found.");
 
       // Attempt to insert duplicate with identical job_number
       let duplicateThrew = false;
       try {
-        await createProductionJobInSupabase({
+        await createProductionJobInDB({
           ...existing,
           id: "prd_dup_" + Date.now(),
         });
@@ -501,7 +501,7 @@ export default function ProductionIntegrationTestPage() {
     }
 
     try {
-      await deleteProductionJobInSupabase(createdTestJobId);
+      await deleteProductionJobInDB(createdTestJobId);
       setCreatedTestJobId(null);
       await refreshData();
       success("Test Production Job successfully archived/cleaned up.");
@@ -526,7 +526,7 @@ export default function ProductionIntegrationTestPage() {
             <div>
               <h4 className="font-semibold text-amber-200">Development-Only Diagnostic Suite (Phase 2.1 Verification)</h4>
               <p className="text-xs text-amber-300/80">
-                This route tests the Supabase PostgreSQL data foundation for the Garment Production Module. It uses real active records
+                This route tests the Database PostgreSQL data foundation for the Garment Production Module. It uses real active records
                 and verifies foreign-key constraints, persistence, and business rules without modifying production UI.
               </p>
             </div>
@@ -570,7 +570,7 @@ export default function ProductionIntegrationTestPage() {
             <p className="mt-2 text-2xl font-bold text-slate-100">
               {orders.filter((o) => o.orderStatus !== "draft" && !o.isArchived).length}
             </p>
-            <p className="text-xs text-slate-400">{orders.length} total orders in Supabase</p>
+            <p className="text-xs text-slate-400">{orders.length} total orders in Database</p>
           </Card>
 
           <Card className="p-4">
@@ -604,7 +604,7 @@ export default function ProductionIntegrationTestPage() {
         {/* Selected Order Context */}
         <Card className="p-5">
           <h3 className="text-sm font-semibold text-slate-200">Active Source Order for Testing</h3>
-          <p className="text-xs text-slate-400">Select a real confirmed order from Supabase to test Production Job creation:</p>
+          <p className="text-xs text-slate-400">Select a real confirmed order from Database to test Production Job creation:</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <select
@@ -643,7 +643,7 @@ export default function ProductionIntegrationTestPage() {
           </div>
 
           <div className="text-xs text-slate-400">
-            Authoritative Database: <span className="font-mono text-emerald-400">Supabase PostgreSQL</span>
+            Authoritative Database: <span className="font-mono text-emerald-400">Database PostgreSQL</span>
           </div>
         </div>
 

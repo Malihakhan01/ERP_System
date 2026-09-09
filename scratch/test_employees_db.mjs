@@ -1,16 +1,16 @@
-// scratch/test_employees_supabase.mjs
-// Automated test suite for Supabase Database mapping and integration
+// scratch/test_employees_db.mjs
+// Automated test suite for Database Database mapping and integration
 
 import assert from "node:assert/strict";
 import {
   mapEmployeeRecordToRow,
   mapRowToEmployeeRecord,
-  isSupabaseConfigured,
-} from "../lib/supabase/employees-db.ts";
+  isDatabaseConfigured,
+} from "../lib/services/-service.ts";
 import { createBlankEmployeeRecord } from "../lib/employees-engine.ts";
 
 console.log("================================================================");
-console.log("  FactoryOS — Supabase Backend Integration Test Suite");
+console.log("  FactoryOS — Database Backend Integration Test Suite");
 console.log("================================================================");
 
 let passed = 0;
@@ -29,8 +29,8 @@ function runTest(num, title, fn) {
 }
 
 // 1. Dual-mode config check
-runTest(1, "Supabase connection detection (dual-mode check)", () => {
-  const configured = isSupabaseConfigured();
+runTest(1, "Database connection detection (dual-mode check)", () => {
+  const configured = isDatabaseConfigured();
   assert.equal(typeof configured, "boolean");
 });
 
@@ -113,7 +113,7 @@ runTest(3, "Map PostgreSQL row and relations back to EmployeeRecord", () => {
 });
 
 console.log("================================================================");
-console.log(`  Supabase Test Results: ${passed} Passed, ${failed} Failed`);
+console.log(`  Database Test Results: ${passed} Passed, ${failed} Failed`);
 console.log("================================================================");
 
 if (failed > 0) process.exit(1);

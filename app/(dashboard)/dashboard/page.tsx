@@ -32,6 +32,7 @@ import {
   ShoppingBag,
   UserCheck,
   FileCheck2,
+  MessageSquare,
 } from "lucide-react";
 
 import { useToast } from "@/components/ui/Toast";
@@ -153,7 +154,8 @@ export default function DashboardPage() {
     loadDashboardTelemetry(false);
   }, [loadDashboardTelemetry]);
 
-  const capacityPercent = Math.min(100, Math.round((data.warehouse.totalStockKg / 5000) * 100));
+  const maxCapacityKg = 12000;
+  const capacityPercent = Math.min(100, Math.round((data.warehouse.totalStockKg / maxCapacityKg) * 100));
 
   // Role-specific primary quick-action CTA
   const primaryAction = React.useMemo(() => {
@@ -232,7 +234,7 @@ export default function DashboardPage() {
               Operational & Financial Metrics
             </h2>
             <span className="text-xs text-slate-400 font-mono font-medium">
-              Base Currency: USD ($) & PKR (Rs)
+              Base Currency: PKR (Rs)
             </span>
           </div>
 
@@ -258,7 +260,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1.5 truncate">
-                    ${data.kpis.totalOrderValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} total contract value
+                    Rs {data.kpis.totalOrderValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} total contract value
                   </p>
                 </div>
               </div>
@@ -373,7 +375,7 @@ export default function DashboardPage() {
             </Link>
 
             {/* KPI 6: Low Stock Alerts */}
-            <Link href="/materials" className="block group">
+            <Link href="/inventory" className="block group">
               <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs group-hover:border-rose-300 group-hover:shadow-sm transition-all flex flex-col justify-between min-w-0 min-h-[120px]">
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <span className="text-xs sm:text-sm font-semibold text-slate-600 truncate">
@@ -413,7 +415,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 mt-2">
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-none">
-                      {loading ? "..." : `$${data.kpis.accountsPayable.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      {loading ? "..." : `Rs ${data.kpis.accountsPayable.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1.5 truncate">
@@ -586,12 +588,12 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-3 min-w-0">
                   <div className="p-2.5 rounded-lg border border-slate-200 bg-white min-w-0">
                     <p className="text-[10px] text-slate-400 font-medium truncate">Capacity Headroom</p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5 truncate">5,000 KG Max</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5 truncate">{maxCapacityKg.toLocaleString()} KG Max</p>
                   </div>
-                  <div className="p-2.5 rounded-lg border border-emerald-200 bg-emerald-50 min-w-0">
-                    <p className="text-[10px] text-emerald-800 font-medium truncate">Stock Status</p>
-                    <p className="text-xs font-bold text-emerald-700 mt-0.5 truncate">
-                      {data.kpis.lowStockAlerts > 0 ? "Reorder Warning" : "Normal / Healthy"}
+                  <div className={`p-2.5 rounded-lg border min-w-0 ${data.kpis.lowStockAlerts > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
+                    <p className={`text-[10px] font-medium truncate ${data.kpis.lowStockAlerts > 0 ? "text-amber-800" : "text-emerald-800"}`}>Stock Status</p>
+                    <p className={`text-xs font-bold mt-0.5 truncate ${data.kpis.lowStockAlerts > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                      {data.kpis.lowStockAlerts > 0 ? "Reorder Warning" : "Optimal / Healthy"}
                     </p>
                   </div>
                 </div>
@@ -599,7 +601,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 min-w-0">
-              <span className="truncate font-medium">Korangi Warehouse Bays 1-4</span>
+              <span className="truncate font-medium">Sialkot Warehouse Bays 1-4 (Daska Road)</span>
               <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600">FIFO Active</span>
             </div>
           </div>
@@ -616,9 +618,6 @@ export default function DashboardPage() {
                 Master ERP System Directory & Quick Navigation
               </h2>
             </div>
-            <span className="text-xs text-slate-400 font-mono font-medium">
-              17 Connected Modules (MySQL 8)
-            </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -640,6 +639,7 @@ export default function DashboardPage() {
               { title: "Salary Advances", href: "/advances", icon: CreditCard, color: "text-pink-600", bg: "bg-pink-50" },
               { title: "Monthly Payroll", href: "/salaries", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
               { title: "Commercial Invoices", href: "/invoices", icon: FileCheck2, color: "text-blue-600", bg: "bg-blue-50" },
+              { title: "Live Team Chat", href: "/chat", icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
               { title: "Executive Reports", href: "/reports", icon: TrendingUp, color: "text-slate-600", bg: "bg-slate-100" },
             ].map((mod) => {
               const Icon = mod.icon;
@@ -648,11 +648,10 @@ export default function DashboardPage() {
               return (
                 <Link key={mod.title} href={mod.href} className="block group">
                   <div
-                    className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-2 min-w-0 ${
-                      isAllowed
+                    className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-2 min-w-0 ${isAllowed
                         ? "bg-white border-slate-200/80 shadow-2xs hover:border-blue-400 hover:shadow-xs"
                         : "bg-slate-50/70 border-slate-200/50 opacity-60 hover:opacity-100 hover:border-amber-300"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className={`h-8 w-8 rounded-lg ${mod.bg} ${mod.color} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
@@ -715,18 +714,26 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* 2. Warning */}
-                <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 text-xs min-w-0">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                {/* 2. Warning / Optimal */}
+                <div className={`flex items-start gap-3 p-3.5 rounded-xl border text-xs min-w-0 ${data.kpis.lowStockAlerts > 0 ? "border-amber-200 bg-amber-50/50" : "border-emerald-200 bg-emerald-50/50"}`}>
+                  {data.kpis.lowStockAlerts > 0 ? (
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <p className="font-bold text-amber-950 truncate">Reorder Level Thresholds</p>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200/70 text-amber-800 shrink-0">
-                        Warning
+                      <p className={`font-bold truncate ${data.kpis.lowStockAlerts > 0 ? "text-amber-950" : "text-emerald-950"}`}>
+                        {data.kpis.lowStockAlerts > 0 ? "Reorder Level Thresholds" : "Stock Levels Optimal"}
+                      </p>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${data.kpis.lowStockAlerts > 0 ? "bg-amber-200/70 text-amber-800" : "bg-emerald-200/70 text-emerald-800"}`}>
+                        {data.kpis.lowStockAlerts > 0 ? "Warning" : "Optimal"}
                       </span>
                     </div>
-                    <p className="text-amber-800 text-[11px] sm:text-xs leading-relaxed">
-                      {data.kpis.lowStockAlerts} warehouse material items currently below safety reorder threshold.
+                    <p className={`text-[11px] sm:text-xs leading-relaxed ${data.kpis.lowStockAlerts > 0 ? "text-amber-800" : "text-emerald-800"}`}>
+                      {data.kpis.lowStockAlerts > 0
+                        ? `${data.kpis.lowStockAlerts} warehouse material items currently below safety reorder threshold.`
+                        : "All warehouse fabric and trim lots are currently within safe operational buffers."}
                     </p>
                   </div>
                 </div>
@@ -800,7 +807,7 @@ export default function DashboardPage() {
                   {
                     category: "Commercial",
                     title: `Active Contracts: ${data.kpis.activeOrders} Orders Registered`,
-                    desc: `Total commercial portfolio of $${data.kpis.totalOrderValue.toLocaleString()} with confirmed delivery milestones.`,
+                    desc: `Total commercial portfolio of Rs ${data.kpis.totalOrderValue.toLocaleString()} with confirmed delivery milestones.`,
                     time: "Live Sync",
                     badgeStyle: "bg-blue-50 text-blue-700 border-blue-200",
                   },
@@ -820,8 +827,8 @@ export default function DashboardPage() {
                   },
                   {
                     category: "Financials",
-                    title: `Billing & Receivables: $${data.kpis.totalInvoiced.toLocaleString()} Invoiced`,
-                    desc: `$${data.kpis.totalCollected.toLocaleString()} collected in cash receipts with $${data.kpis.totalReceivable.toLocaleString()} outstanding receivables balance.`,
+                    title: `Billing & Receivables: Rs ${data.kpis.totalInvoiced.toLocaleString()} Invoiced`,
+                    desc: `Rs ${data.kpis.totalCollected.toLocaleString()} collected in cash receipts with Rs ${data.kpis.totalReceivable.toLocaleString()} outstanding receivables balance.`,
                     time: "Reconciled",
                     badgeStyle: "bg-purple-50 text-purple-700 border-purple-200",
                   },

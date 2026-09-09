@@ -25,7 +25,7 @@ export async function GET() {
             ? "Warehouse & Inventory Lead"
             : "Factory Operator",
         department: r.department || "Operations",
-        plant: "Unit 1 - Korangi Garment Hub",
+        plant: "Unit 1 - Small Industrial Estate, Sialkot",
         initials:
           r.name
             .split(" ")

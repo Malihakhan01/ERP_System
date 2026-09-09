@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Logistics & Production Tracking Module
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — TRACKING MODULE BACKEND INTEGRATION TEST SUITE");
@@ -37,9 +37,9 @@ try {
   console.log("Note: reading env from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -49,7 +49,7 @@ async function runTests() {
 
   try {
     // -------------------------------------------------------------------------
-    // TEST 1: Tracking record model & Supabase structure
+    // TEST 1: Tracking record model & Database structure
     // -------------------------------------------------------------------------
     const testTrackingRecord = {
       id: "trk_test_001",
@@ -78,7 +78,7 @@ async function runTests() {
       testTrackingRecord.trackingNumber === testTrackNum &&
       testTrackingRecord.currentGate === 4 &&
       testTrackingRecord.status === "in_production",
-      "1. Tracking record model structure validated with Supabase relational schema",
+      "1. Tracking record model structure validated with Database relational schema",
       { trackingNumber: testTrackingRecord.trackingNumber, gate: testTrackingRecord.currentGate }
     );
 
@@ -264,27 +264,27 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 16: Existing Production module remains unaffected
     // -------------------------------------------------------------------------
-    const prodDbExists = fs.existsSync("lib/supabase/production-db.ts");
+    const prodDbExists = fs.existsSync("lib/services/production-db.ts");
     const prodPageExists = fs.existsSync("app/(dashboard)/production/page.tsx");
     assert(prodDbExists && prodPageExists, "16. Existing Production module contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 17: Existing Orders module remains unaffected
     // -------------------------------------------------------------------------
-    const ordersDbExists = fs.existsSync("lib/supabase/orders-db.ts");
+    const ordersDbExists = fs.existsSync("lib/services/orders-db.ts");
     const ordersPageExists = fs.existsSync("app/(dashboard)/orders/page.tsx");
     assert(ordersDbExists && ordersPageExists, "17. Existing Orders module contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 18: Existing Inventory module remains unaffected
     // -------------------------------------------------------------------------
-    const inventoryDbExists = fs.existsSync("lib/supabase/inventory-db.ts");
+    const inventoryDbExists = fs.existsSync("lib/services/inventory-db.ts");
     assert(inventoryDbExists, "18. Existing Inventory module contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 19: Clean unconfigured external adapter abstraction
     // -------------------------------------------------------------------------
-    const trackingDbCode = fs.readFileSync("lib/supabase/tracking-db.ts", "utf-8");
+    const trackingDbCode = fs.readFileSync("lib/services/tracking-db.ts", "utf-8");
     const hasAdapterInterface = trackingDbCode.includes("CarrierTrackingAdapter");
     const hasNoFakeApi = !trackingDbCode.includes("https://api.dhl.com/fake") && !trackingDbCode.includes("mock_carrier_key");
     assert(
@@ -295,7 +295,7 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 20: Database schema updated
     // -------------------------------------------------------------------------
-    const schemaSql = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schemaSql = fs.readFileSync("database/schema.sql", "utf-8");
     const hasTrackingShipmentsTable = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.tracking_shipments");
     assert(
       hasTrackingShipmentsTable,

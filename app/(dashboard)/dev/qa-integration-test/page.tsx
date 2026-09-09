@@ -24,18 +24,18 @@ import {
   QADefectRecord,
   QAReworkRecord,
   QAQueueItem,
-  getQAInspectionsFromSupabase,
-  getQAReworkRecordsFromSupabase,
-  getQAQueueFromSupabase,
-  createQAInspectionInSupabase,
-  addDefectToQAInspectionInSupabase,
-  submitQAInspectionInSupabase,
-  approveQAInspectionInSupabase,
-  failQAInspectionInSupabase,
-  createQAReworkRecordInSupabase,
+  getQAInspectionsFromDB,
+  getQAReworkRecordsFromDB,
+  getQAQueueFromDB,
+  createQAInspectionInDB,
+  addDefectToQAInspectionInDB,
+  submitQAInspectionInDB,
+  approveQAInspectionInDB,
+  failQAInspectionInDB,
+  createQAReworkRecordInDB,
   calculateAQLSamplingPlan,
 } from "@/lib/services/qa-service";
-import { getProductionJobsFromSupabase } from "@/lib/services/production-service";
+import { getProductionJobsFromDB } from "@/lib/services/production-service";
 
 interface TestResultItem {
   id: string;
@@ -61,9 +61,9 @@ export default function QAIntegrationTestPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [insps, queue, rwk] = await Promise.all([
-        getQAInspectionsFromSupabase(),
-        getQAQueueFromSupabase(),
-        getQAReworkRecordsFromSupabase(),
+        getQAInspectionsFromDB(),
+        getQAQueueFromDB(),
+        getQAReworkRecordsFromDB(),
       ]);
       setInspections(insps);
       setQaQueue(queue);
@@ -110,7 +110,7 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 3: QA Queue Resolution
-      const queue = await getQAQueueFromSupabase();
+      const queue = await getQAQueueFromDB();
       results.push({
         id: "test-3",
         name: "QA Queue Resolution from Live Production Jobs",
@@ -120,11 +120,11 @@ export default function QAIntegrationTestPage() {
         details: { count: queue.length },
       });
 
-      // Test 4: Create QA Inspection in Supabase
-      const jobs = await getProductionJobsFromSupabase();
+      // Test 4: Create QA Inspection in Database
+      const jobs = await getProductionJobsFromDB();
       const targetJob = jobs[0] || { id: `job_test_${timestamp}`, jobNumber: `PRD-TEST-${timestamp.toString().slice(-4)}` };
 
-      const newInsp = await createQAInspectionInSupabase({
+      const newInsp = await createQAInspectionInDB({
         productionJobId: targetJob.id,
         lotQuantity: 500,
         inspectionLevel: "Level II",
@@ -143,7 +143,7 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 5: Add Classified Defects
-      const defect1 = await addDefectToQAInspectionInSupabase({
+      const defect1 = await addDefectToQAInspectionInDB({
         qaInspectionId: newInsp.id,
         defectCode: "SEW-001",
         defectName: "Broken / Skipped Stitch",
@@ -162,7 +162,7 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 6: Submit Audit with Passing Values
-      const submittedInsp = await submitQAInspectionInSupabase({
+      const submittedInsp = await submitQAInspectionInDB({
         inspectionId: newInsp.id,
         inspectedQuantity: 50,
         passedQuantity: 48,
@@ -182,13 +182,13 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 7: Critical Defect Instant Failure
-      const criticalFailInsp = await createQAInspectionInSupabase({
+      const criticalFailInsp = await createQAInspectionInDB({
         productionJobId: targetJob.id,
         lotQuantity: 300,
         inspectorName: "Diagnostic Test Lead",
       });
 
-      await addDefectToQAInspectionInSupabase({
+      await addDefectToQAInspectionInDB({
         qaInspectionId: criticalFailInsp.id,
         defectCode: "FAB-001",
         defectName: "Fabric Hole / Burn Defect",
@@ -197,7 +197,7 @@ export default function QAIntegrationTestPage() {
         quantity: 1,
       });
 
-      const failedResult = await submitQAInspectionInSupabase({
+      const failedResult = await submitQAInspectionInDB({
         inspectionId: criticalFailInsp.id,
         inspectedQuantity: 50,
         passedQuantity: 49,
@@ -215,7 +215,7 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 8: Rework Record Persistence
-      const rwk = await createQAReworkRecordInSupabase({
+      const rwk = await createQAReworkRecordInDB({
         qaInspectionId: newInsp.id,
         productionJobId: targetJob.id,
         quantity: 2,
@@ -233,8 +233,8 @@ export default function QAIntegrationTestPage() {
       });
 
       // Test 9: Stage Progression on QA Approval
-      const approvedInsp = await approveQAInspectionInSupabase(newInsp.id, "QA Director");
-      const updatedJob = (await getProductionJobsFromSupabase()).find((j) => j.id === targetJob.id);
+      const approvedInsp = await approveQAInspectionInDB(newInsp.id, "QA Director");
+      const updatedJob = (await getProductionJobsFromDB()).find((j) => j.id === targetJob.id);
 
       results.push({
         id: "test-9",
@@ -247,7 +247,7 @@ export default function QAIntegrationTestPage() {
 
       // Test 10: Refresh & Readback Persistence
       await loadData();
-      const readback = (await getQAInspectionsFromSupabase()).find((i) => i.id === newInsp.id);
+      const readback = (await getQAInspectionsFromDB()).find((i) => i.id === newInsp.id);
 
       results.push({
         id: "test-10",
@@ -284,7 +284,7 @@ export default function QAIntegrationTestPage() {
       <div className="flex-1 w-full max-w-[1600px] mx-auto min-w-0 px-4 py-5 sm:px-6 lg:px-8 space-y-6">
         <PageHeader
           title="QA / AQL 2.5 Integration Diagnostic Bench"
-          description="Interactive test console validating ISO 2859-1 sampling math, defect logs, rework routing, production stage advancement, and Supabase persistence."
+          description="Interactive test console validating ISO 2859-1 sampling math, defect logs, rework routing, production stage advancement, and Database persistence."
           actions={
             <div className="flex items-center gap-3">
               <Button variant="secondary" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={loadData}>
@@ -319,7 +319,7 @@ export default function QAIntegrationTestPage() {
                 activeTab === "records" ? "border-primary text-primary" : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Database className="h-4 w-4" /> Live Supabase Records ({inspections.length})
+              <Database className="h-4 w-4" /> Live Database Records ({inspections.length})
             </button>
           </div>
         </Card>
@@ -384,7 +384,7 @@ export default function QAIntegrationTestPage() {
           </div>
         )}
 
-        {/* TAB 2: LIVE SUPABASE RECORDS */}
+        {/* TAB 2: LIVE DATABASE RECORDS */}
         {activeTab === "records" && (
           <div className="space-y-6">
             <Card className="overflow-hidden">

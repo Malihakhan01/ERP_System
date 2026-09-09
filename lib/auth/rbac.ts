@@ -2,6 +2,7 @@ import { AuthUser } from "./auth-types";
 
 export type AppModule =
   | "dashboard"
+  | "portal"
   | "products"
   | "materials"
   | "purchases"
@@ -43,6 +44,7 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     description: "Complete unrestricted access to all ERP modules, financial ledgers, and system settings.",
     allowedModules: [
       "dashboard",
+      "portal",
       "products",
       "materials",
       "purchases",
@@ -223,19 +225,21 @@ export const ROLE_CONFIGS: Record<string, RoleConfig> = {
     key: "operator",
     title: "Shopfloor Line Operator",
     badge: "Floor Operator",
-    badgeColor: "bg-slate-100 text-slate-800 border-slate-200",
-    description: "Barcode scanning for bundle progression, sewing line operations, and master carton packing.",
+    badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+    description: "Employee Self-Service portal, assigned floor work orders, wage earnings, advance requests, and team chat.",
     allowedModules: [
-      "dashboard",
+      "portal",
       "production",
       "tracking",
       "packing",
     ],
     allowedRoutes: [
-      "/dashboard",
+      "/portal",
       "/production",
       "/tracking",
       "/packing",
+      "/chat",
+      "/profile",
     ],
     kpiHighlight: "floor",
   },
@@ -254,7 +258,14 @@ export function hasModuleAccess(role: string, module: AppModule): boolean {
  * Check if a role can access a specific route pathname
  */
 export function hasRouteAccess(role: string, pathname: string): boolean {
-  if (pathname === "/profile" || pathname.startsWith("/profile/")) return true;
+  if (
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/") ||
+    pathname === "/chat" ||
+    pathname.startsWith("/chat/")
+  ) {
+    return true;
+  }
   const config = ROLE_CONFIGS[role] || ROLE_CONFIGS.super_admin;
   if (config.allowedRoutes.includes("*")) return true;
   return config.allowedRoutes.some((route) => {

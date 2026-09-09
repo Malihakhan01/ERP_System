@@ -23,16 +23,16 @@ import {
   PackingRecord,
   PackingCartonRecord,
   PackingQueueItem,
-  getPackingRecordsFromSupabase,
-  getPackingCartonsFromSupabase,
-  getPackingQueueFromSupabase,
-  createPackingRecordInSupabase,
-  createPackingCartonInSupabase,
-  completePackingInSupabase,
+  getPackingRecordsFromDB,
+  getPackingCartonsFromDB,
+  getPackingQueueFromDB,
+  createPackingRecordInDB,
+  createPackingCartonInDB,
+  completePackingInDB,
   resolveCartonBarcode,
 } from "@/lib/services/packing-service";
-import { getProductionJobsFromSupabase } from "@/lib/services/production-service";
-import { getTrackingRecordsFromSupabase } from "@/lib/services/tracking-service";
+import { getProductionJobsFromDB } from "@/lib/services/production-service";
+import { getTrackingRecordsFromDB } from "@/lib/services/tracking-service";
 
 interface TestResultItem {
   id: string;
@@ -58,9 +58,9 @@ export default function PackingIntegrationTestPage() {
   const loadData = React.useCallback(async () => {
     try {
       const [records, cartons, queue] = await Promise.all([
-        getPackingRecordsFromSupabase(),
-        getPackingCartonsFromSupabase(),
-        getPackingQueueFromSupabase(),
+        getPackingRecordsFromDB(),
+        getPackingCartonsFromDB(),
+        getPackingQueueFromDB(),
       ]);
       setPackingRecords(records);
       setPackingCartons(cartons);
@@ -83,7 +83,7 @@ export default function PackingIntegrationTestPage() {
 
     try {
       // Test 1: Packing Queue Resolution
-      const queue = await getPackingQueueFromSupabase();
+      const queue = await getPackingQueueFromDB();
       results.push({
         id: "test-1",
         name: "Packing Queue Resolution for QA-Approved Jobs",
@@ -94,7 +94,7 @@ export default function PackingIntegrationTestPage() {
       });
 
       // Test 2: Create Packing Record
-      const jobs = await getProductionJobsFromSupabase();
+      const jobs = await getProductionJobsFromDB();
       const targetJob = jobs[0] || {
         id: `job_test_pck_${timestamp}`,
         jobNumber: `PRD-PCK-${timestamp.toString().slice(-4)}`,
@@ -102,7 +102,7 @@ export default function PackingIntegrationTestPage() {
         totalQaPassedQuantity: 500,
       };
 
-      const newPacking = await createPackingRecordInSupabase({
+      const newPacking = await createPackingRecordInDB({
         productionJobId: targetJob.id,
         qaApprovedQuantity: 500,
         packingMethod: "single_polybag_master_carton",
@@ -112,7 +112,7 @@ export default function PackingIntegrationTestPage() {
 
       results.push({
         id: "test-2",
-        name: "Initialize Packing Session in Supabase",
+        name: "Initialize Packing Session in Database",
         category: "Repository & DB",
         passed: Boolean(newPacking.id && newPacking.packingNumber),
         message: `Created packing record ${newPacking.packingNumber} with QA lot ${newPacking.qaApprovedQuantity} pcs.`,
@@ -120,7 +120,7 @@ export default function PackingIntegrationTestPage() {
       });
 
       // Test 3: Create Master Carton with Size Breakdown
-      const newCarton = await createPackingCartonInSupabase({
+      const newCarton = await createPackingCartonInDB({
         packingRecordId: newPacking.id,
         productionJobId: targetJob.id,
         totalUnitsInCarton: 50,
@@ -141,7 +141,7 @@ export default function PackingIntegrationTestPage() {
       // Test 4: Over-Packing Validation
       let overPackingBlocked = false;
       try {
-        await createPackingCartonInSupabase({
+        await createPackingCartonInDB({
           packingRecordId: newPacking.id,
           productionJobId: targetJob.id,
           totalUnitsInCarton: 500, // 50 + 500 = 550 > 500 approved
@@ -172,8 +172,8 @@ export default function PackingIntegrationTestPage() {
       });
 
       // Test 6: Complete Packing Session & Advance Stage
-      const completed = await completePackingInSupabase(newPacking.id, "Diagnostic Packing Lead");
-      const updatedJob = (await getProductionJobsFromSupabase()).find((j) => j.id === targetJob.id);
+      const completed = await completePackingInDB(newPacking.id, "Diagnostic Packing Lead");
+      const updatedJob = (await getProductionJobsFromDB()).find((j) => j.id === targetJob.id);
 
       results.push({
         id: "test-6",
@@ -185,7 +185,7 @@ export default function PackingIntegrationTestPage() {
       });
 
       // Test 7: Tracking Milestone Gate 7 Integration
-      const tracking = await getTrackingRecordsFromSupabase();
+      const tracking = await getTrackingRecordsFromDB();
       results.push({
         id: "test-7",
         name: "Tracking Milestone Gate 7 (Polybagging & Cartons) Linkage",
@@ -197,7 +197,7 @@ export default function PackingIntegrationTestPage() {
 
       // Test 8: Refresh Readback Persistence
       await loadData();
-      const readbackCarton = (await getPackingCartonsFromSupabase()).find((c) => c.id === newCarton.id);
+      const readbackCarton = (await getPackingCartonsFromDB()).find((c) => c.id === newCarton.id);
 
       results.push({
         id: "test-8",

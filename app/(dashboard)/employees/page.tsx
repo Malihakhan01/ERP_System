@@ -44,10 +44,12 @@ import {
   FileImage,
   Loader2,
   AlertCircle,
-  Phone,
   Camera,
   CheckCircle2,
+  CheckSquare,
 } from "lucide-react";
+import { AssignTaskModal } from "@/components/employees/AssignTaskModal";
+import { EmployeeTasksList } from "@/components/employees/EmployeeTasksList";
 import {
   EmployeeRecord,
   SalaryType,
@@ -83,9 +85,9 @@ import {
   getEmployeeLoanSummary,
 } from "@/lib/advances-engine";
 import {
-  getEmployeesFromSupabase,
-  createEmployeeInSupabase,
-  updateEmployeeInSupabase,
+  getEmployeesFromDB,
+  createEmployeeInDB,
+  updateEmployeeInDB,
   uploadEmployeeDocumentFile,
   deleteEmployeeDocumentFile,
   formatBytes,
@@ -119,7 +121,8 @@ type ProfileTab =
   | "attendance"
   | "advances"
   | "payroll"
-  | "timeline";
+  | "timeline"
+  | "tasks";
 
 export default function EmployeesPage() {
   const router = useRouter();
@@ -166,7 +169,7 @@ export default function EmployeesPage() {
   const loadEmployees = React.useCallback(async (showToast = false) => {
     setLoadingEmployees(true);
     try {
-      const data = await getEmployeesFromSupabase();
+      const data = await getEmployeesFromDB();
       if (data && data.length > 0) {
         setLocalOverride(data);
       }
@@ -211,9 +214,9 @@ export default function EmployeesPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string | null>(null);
   const [activeProfileTab, setActiveProfileTab] = React.useState<ProfileTab>("overview");
 
-  // Initial fetch from Supabase / localStorage on mount
+  // Initial fetch from Database / localStorage on mount
   React.useEffect(() => {
-    getEmployeesFromSupabase()
+    getEmployeesFromDB()
       .then((data) => {
         if (data && data.length > 0) {
           setLocalOverride(data);
@@ -247,6 +250,11 @@ export default function EmployeesPage() {
 
   // Print Profile Modal State
   const [isPrintModalOpen, setIsPrintModalOpen] = React.useState(false);
+
+  // Assign Task Modal State
+  const [isAssignTaskModalOpen, setIsAssignTaskModalOpen] = React.useState(false);
+  const [assignTaskEmployeeId, setAssignTaskEmployeeId] = React.useState<string | undefined>(undefined);
+  const [taskRefreshKey, setTaskRefreshKey] = React.useState(0);
 
   // Archive & Delete Dialogs
   const [employeeToArchive, setEmployeeToArchive] = React.useState<EmployeeRecord | null>(null);
@@ -327,7 +335,7 @@ export default function EmployeesPage() {
     const duplicated = duplicateEmployeeRecord(emp, employees);
     const updatedList = [duplicated, ...employees];
     saveEmployeesList(updatedList);
-    createEmployeeInSupabase(duplicated).catch((e) => console.error(e));
+    createEmployeeInDB(duplicated).catch((e) => console.error(e));
     toast({
       type: "success",
       message: "Employee Duplicated",
@@ -343,12 +351,33 @@ export default function EmployeesPage() {
     const archived = archiveEmployeeRecord(employeeToArchive);
     const updatedList = employees.map((e) => (e.id === archived.id ? archived : e));
     saveEmployeesList(updatedList);
-    updateEmployeeInSupabase(archived).catch((e) => console.error(e));
+    updateEmployeeInDB(archived).catch((e) => console.error(e));
     setEmployeeToArchive(null);
     toast({
       type: "info",
       message: "Employee Archived",
       description: `${archived.employeeNumber} has been safely archived.`,
+    });
+  };
+
+  // Restore Employee
+  const handleRestoreEmployee = (emp: EmployeeRecord) => {
+    const restored: EmployeeRecord = {
+      ...emp,
+      isArchived: false,
+      employmentInfo: {
+        ...emp.employmentInfo,
+        status: "Active",
+      },
+      updatedAt: new Date().toISOString(),
+    };
+    const updatedList = employees.map((e) => (e.id === restored.id ? restored : e));
+    saveEmployeesList(updatedList);
+    updateEmployeeInDB(restored).catch((e) => console.error(e));
+    toast({
+      type: "success",
+      message: "Employee Restored",
+      description: `${restored.employeeNumber} has been restored to active workforce.`,
     });
   };
 
@@ -398,7 +427,7 @@ export default function EmployeesPage() {
     setSelectedFile(file);
   };
 
-  // Real Document Upload Handler with Supabase Storage
+  // Real Document Upload Handler with Database Storage
   const handleUploadDocumentSubmit = async () => {
     if (!selectedEmployee) return;
     if (!selectedFile) {
@@ -572,6 +601,17 @@ export default function EmployeesPage() {
             {/* Right Action Buttons */}
             <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center flex-wrap">
               <Button
+                variant="primary"
+                size="md"
+                leftIcon={<CheckSquare className="h-4 w-4" />}
+                onClick={() => {
+                  setAssignTaskEmployeeId(emp.id);
+                  setIsAssignTaskModalOpen(true);
+                }}
+              >
+                Assign Task
+              </Button>
+              <Button
                 variant="outline"
                 size="md"
                 leftIcon={<Copy className="h-4 w-4" />}
@@ -619,7 +659,7 @@ export default function EmployeesPage() {
                     };
                     const updated = employees.map((e) => (e.id === emp.id ? unarchived : e));
                     saveEmployeesList(updated);
-                    updateEmployeeInSupabase(unarchived).catch((e) => console.error(e));
+                    updateEmployeeInDB(unarchived).catch((e) => console.error(e));
                     toast({ type: "success", message: "Employee Restored" });
                   }}
                 >
@@ -700,6 +740,7 @@ export default function EmployeesPage() {
               { id: "advances", label: `Advances (${advances.length})`, icon: CreditCard },
               { id: "payroll", label: "Payroll History", icon: History },
               { id: "timeline", label: "Activity Timeline", icon: Activity },
+              { id: "tasks", label: "Tasks & Work Orders", icon: CheckSquare },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeProfileTab === tab.id;
@@ -1033,7 +1074,7 @@ export default function EmployeesPage() {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 5: REAL DOCUMENT MANAGEMENT (REAL SUPABASE STORAGE)   */}
+          {/* TAB 5: REAL DOCUMENT MANAGEMENT (REAL DATABASE STORAGE)   */}
           {/* ========================================================= */}
           {activeProfileTab === "documents" && (
             <Card className="p-6 border-slate-200/80 shadow-xs bg-white space-y-6">
@@ -1439,10 +1480,52 @@ export default function EmployeesPage() {
               </div>
             </Card>
           )}
+
+          {/* ========================================================= */}
+          {/* TAB 10: OPERATIONAL TASKS & WORK ORDERS                   */}
+          {/* ========================================================= */}
+          {activeProfileTab === "tasks" && (
+            <Card className="p-6 border-slate-200/80 shadow-xs bg-white space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-blue-600" />
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Assigned Floor Tasks & Work Orders
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Assign and monitor operational duties, maintenance schedules, and quality inspections for {emp.personalInfo.fullName}.
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<CheckSquare className="h-3.5 w-3.5" />}
+                  onClick={() => {
+                    setAssignTaskEmployeeId(emp.id);
+                    setIsAssignTaskModalOpen(true);
+                  }}
+                >
+                  Assign Task
+                </Button>
+              </div>
+
+              <EmployeeTasksList
+                employeeId={emp.id}
+                employeeName={emp.personalInfo.fullName}
+                refreshKey={taskRefreshKey}
+                onAssignTaskClick={() => {
+                  setAssignTaskEmployeeId(emp.id);
+                  setIsAssignTaskModalOpen(true);
+                }}
+              />
+            </Card>
+          )}
         </div>
 
         {/* ========================================================= */}
-        {/* MODAL: REAL DOCUMENT UPLOAD (SUPABASE STORAGE)            */}
+        {/* MODAL: REAL DOCUMENT UPLOAD (DATABASE STORAGE)            */}
         {/* ========================================================= */}
         <Modal
           isOpen={isDocModalOpen}
@@ -1541,7 +1624,7 @@ export default function EmployeesPage() {
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3">
                 <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
                 <span className="text-xs font-bold text-blue-800">
-                  {uploadStep === "uploading" && "Uploading file to Supabase Storage..."}
+                  {uploadStep === "uploading" && "Uploading file to Database Storage..."}
                   {uploadStep === "saving" && "Saving document record in database..."}
                   {uploadStep === "success" && "Upload complete!"}
                 </span>
@@ -1677,11 +1760,19 @@ export default function EmployeesPage() {
             </div>
           </div>
 
-          <ModalFooter>
+          <ModalFooter className="no-print">
             <Button variant="ghost" onClick={() => setIsPrintModalOpen(false)}>
               Close
             </Button>
-            <Button variant="primary" leftIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
+            <Button
+              variant="primary"
+              leftIcon={<Printer className="h-4 w-4" />}
+              onClick={() => {
+                document.body.classList.add("print-document-active");
+                window.print();
+                document.body.classList.remove("print-document-active");
+              }}
+            >
               Print Report
             </Button>
           </ModalFooter>
@@ -1708,6 +1799,23 @@ export default function EmployeesPage() {
           confirmLabel="Delete Record"
           destructive
         />
+
+        {/* Assign Task Modal */}
+        <AssignTaskModal
+          isOpen={isAssignTaskModalOpen}
+          onClose={() => setIsAssignTaskModalOpen(false)}
+          onTaskAssigned={() => {
+            setTaskRefreshKey((prev) => prev + 1);
+            toast({ type: "success", message: "Task assigned successfully." });
+          }}
+          employees={employees.map((e) => ({
+            id: e.id,
+            name: `${e.employeeNumber} - ${e.personalInfo.fullName}`,
+            department: e.employmentInfo.department,
+            designation: e.employmentInfo.designation,
+          }))}
+          preselectedEmployeeId={assignTaskEmployeeId}
+        />
       </>
     );
   }
@@ -1732,6 +1840,17 @@ export default function EmployeesPage() {
                 onClick={() => loadEmployees(true)}
               >
                 Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                leftIcon={<CheckSquare className="h-4 w-4" />}
+                onClick={() => {
+                  setAssignTaskEmployeeId(undefined);
+                  setIsAssignTaskModalOpen(true);
+                }}
+              >
+                Assign Task
               </Button>
               <Button variant="primary" leftIcon={<Plus className="h-4 w-4" />} onClick={openAddModal}>
                 Add Employee
@@ -1839,6 +1958,8 @@ export default function EmployeesPage() {
                       key={emp.id}
                       className="hover:bg-slate-50/70 cursor-pointer transition-colors"
                       onClick={() => {
+                        setEmployeeToArchive(null);
+                        setEmployeeToDelete(null);
                         setSelectedEmployeeId(emp.id);
                         setActiveProfileTab("overview");
                       }}
@@ -1874,7 +1995,10 @@ export default function EmployeesPage() {
                             variant="ghost"
                             size="sm"
                             title="View Profile"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEmployeeToArchive(null);
+                              setEmployeeToDelete(null);
                               setSelectedEmployeeId(emp.id);
                               setActiveProfileTab("overview");
                             }}
@@ -1884,8 +2008,23 @@ export default function EmployeesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            title="Assign Task"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAssignTaskEmployeeId(emp.id);
+                              setIsAssignTaskModalOpen(true);
+                            }}
+                          >
+                            <CheckSquare className="h-3.5 w-3.5 text-emerald-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             title="Edit Employee"
-                            onClick={() => openEditModal(emp)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(emp);
+                            }}
                           >
                             <Edit className="h-3.5 w-3.5 text-slate-600" />
                           </Button>
@@ -1893,20 +2032,49 @@ export default function EmployeesPage() {
                             variant="ghost"
                             size="sm"
                             title="Duplicate"
-                            onClick={() => handleDuplicateEmployee(emp)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateEmployee(emp);
+                            }}
                           >
                             <Copy className="h-3.5 w-3.5 text-slate-600" />
                           </Button>
-                          {!emp.isArchived && (
+                          {!emp.isArchived ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               title="Archive"
-                              onClick={() => setEmployeeToArchive(emp)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEmployeeToArchive(emp);
+                              }}
                             >
                               <Archive className="h-3.5 w-3.5 text-amber-600" />
                             </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Restore Employee"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRestoreEmployee(emp);
+                              }}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5 text-emerald-600" />
+                            </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEmployeeToDelete(emp);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -1937,6 +2105,45 @@ export default function EmployeesPage() {
             <Pagination page={page} pageSize={PAGE_SIZE} total={filteredEmployees.length} onPageChange={setPage} />
           )}
         </Card>
+
+        {/* Assign Task Modal */}
+        <AssignTaskModal
+          isOpen={isAssignTaskModalOpen}
+          onClose={() => setIsAssignTaskModalOpen(false)}
+          onTaskAssigned={() => {
+            setTaskRefreshKey((prev) => prev + 1);
+            toast({ type: "success", message: "Task assigned successfully." });
+          }}
+          employees={employees.map((e) => ({
+            id: e.id,
+            name: `${e.employeeNumber} - ${e.personalInfo.fullName}`,
+            department: e.employmentInfo.department,
+            designation: e.employmentInfo.designation,
+          }))}
+          preselectedEmployeeId={assignTaskEmployeeId}
+        />
+
+        {/* Archive Dialog */}
+        <ConfirmDialog
+          isOpen={!!employeeToArchive}
+          onClose={() => setEmployeeToArchive(null)}
+          onConfirm={handleArchiveConfirm}
+          title="Archive Employee Profile"
+          description={`Archive ${employeeToArchive?.employeeNumber}? All records will be preserved.`}
+          confirmLabel="Archive Employee"
+          destructive
+        />
+
+        {/* Delete Dialog */}
+        <ConfirmDialog
+          isOpen={!!employeeToDelete}
+          onClose={() => setEmployeeToDelete(null)}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Record"
+          description={`Permanently remove ${employeeToDelete?.employeeNumber}?`}
+          confirmLabel="Delete Record"
+          destructive
+        />
       </div>
     </>
   );

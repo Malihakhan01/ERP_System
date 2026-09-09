@@ -51,11 +51,11 @@ import {
   enhanceAiPrompt,
 } from "@/lib/ai-mockup-engine";
 import {
-  getAiGenerationsFromSupabase,
-  saveAiGenerationInSupabase,
-  deleteAiGenerationInSupabase,
-  toggleSaveDesignInSupabase,
-  getAiSettingsFromSupabase,
+  getAiGenerationsFromDB,
+  saveAiGenerationInDB,
+  deleteAiGenerationInDB,
+  toggleSaveDesignInDB,
+  getAiSettingsFromDB,
 } from "@/lib/services/ai-mockup-service";
 
 type ActiveTab = "generator" | "saved" | "history";
@@ -126,18 +126,18 @@ function MockupGeneratorContent() {
         if (serverData.hasApiKey) {
           setHasApiKey(true);
         } else {
-          getAiSettingsFromSupabase().then((s) => {
+          getAiSettingsFromDB().then((s) => {
             setHasApiKey(Boolean(s.openaiApiKey && !s.openaiApiKey.includes("placeholder") && s.openaiApiKey.startsWith("sk-")));
           });
         }
       })
       .catch(() => {
-        getAiSettingsFromSupabase().then((s) => {
+        getAiSettingsFromDB().then((s) => {
           setHasApiKey(Boolean(s.openaiApiKey && !s.openaiApiKey.includes("placeholder") && s.openaiApiKey.startsWith("sk-")));
         });
       });
 
-    getAiGenerationsFromSupabase().then((data) => {
+    getAiGenerationsFromDB().then((data) => {
       setAllGenerations(data || []);
       if (data && data.length > 0) {
         setActiveGeneration(data[0]);
@@ -213,7 +213,7 @@ function MockupGeneratorContent() {
     const t3 = setTimeout(() => setGenerationStep(4), 5500);
 
     try {
-      const settings = await getAiSettingsFromSupabase();
+      const settings = await getAiSettingsFromDB();
 
       const res = await fetch("/api/ai/generate-mockup", {
         method: "POST",
@@ -250,7 +250,7 @@ function MockupGeneratorContent() {
         createdAt: new Date().toISOString(),
       };
 
-      await saveAiGenerationInSupabase(newRecord);
+      await saveAiGenerationInDB(newRecord);
       setAllGenerations((prev) => [newRecord, ...prev]);
       setActiveGeneration(newRecord);
 
@@ -279,7 +279,7 @@ function MockupGeneratorContent() {
   // Toggle Save / Bookmark
   const handleToggleSave = async (record: AiGenerationRecord) => {
     const nextState = !record.isSaved;
-    await toggleSaveDesignInSupabase(record.id, nextState);
+    await toggleSaveDesignInDB(record.id, nextState);
     setAllGenerations((prev) =>
       prev.map((r) => (r.id === record.id ? { ...r, isSaved: nextState } : r))
     );
@@ -326,7 +326,7 @@ function MockupGeneratorContent() {
 
   // Delete Record
   const handleDeleteRecord = async (id: string) => {
-    await deleteAiGenerationInSupabase(id);
+    await deleteAiGenerationInDB(id);
     setAllGenerations((prev) => prev.filter((r) => r.id !== id));
     if (activeGeneration?.id === id) {
       setActiveGeneration(allGenerations.find((r) => r.id !== id) || null);

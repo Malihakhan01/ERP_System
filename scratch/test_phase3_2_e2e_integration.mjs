@@ -5,15 +5,15 @@
  *   Finishing → QA → Packing → Dispatch → Tracking → Invoice → Reports
  *
  * ARCHITECTURE NOTE:
- * The .env.local contains PLACEHOLDER Supabase credentials by design (Phase 1 policy).
- * Live database calls are skipped when Supabase URL is a placeholder.
+ * The .env.local contains PLACEHOLDER Database credentials by design (Phase 1 policy).
+ * Live database calls are skipped when Database URL is a placeholder.
  * All business logic, formula computation, relational schema, and UI route assertions
  * run on every execution without requiring live credentials.
  * When real credentials are provided, the live-DB gates execute fully.
  *
  * Phase 3.2 ensures:
  * ✅ All 20 module UI routes present
- * ✅ All 20 Supabase repository files present
+ * ✅ All 20 Database repository files present
  * ✅ Zero NaN in financial/manufacturing calculations
  * ✅ All business-logic engine formulas verified
  * ✅ Reports engine formula contracts intact
@@ -44,11 +44,11 @@ const env = Object.fromEntries(
     })
 );
 
-const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY ?? env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const LIVE_DB = !supabaseUrl.includes("placeholder") && !supabaseKey.includes("placeholder") && supabaseUrl.startsWith("https://");
+const dbUrl = env.NEXT_PUBLIC_DB_URL ?? "";
+const dbKey = env.DB_SERVICE_ROLE_KEY ?? env.NEXT_PUBLIC_DB_ANON_KEY ?? "";
+const LIVE_DB = !dbUrl.includes("placeholder") && !dbKey.includes("placeholder") && dbUrl.startsWith("https://");
 
-console.log(`Supabase Mode: ${LIVE_DB ? "LIVE DATABASE" : "PLACEHOLDER (logic-only assertions active)"}`);
+console.log(`Database Mode: ${LIVE_DB ? "LIVE DATABASE" : "PLACEHOLDER (logic-only assertions active)"}`);
 
 // ─── Test Registry ──────────────────────────────────────────────────────────
 
@@ -76,22 +76,22 @@ function skip(label, reason) {
 
 // ─── Live DB helpers ──────────────────────────────────────────────────────────
 
-let supabase = null;
+let database = null;
 const cleanupIds = {
   clientId: null,
   orderId: null,
 };
 
-async function initSupabase() {
+async function initDatabase() {
   if (!LIVE_DB) return;
-  const { createClient } = await import("@supabase/supabase-js");
-  supabase = createClient(supabaseUrl, supabaseKey);
+  const { createClient } = await import("@database/database-js");
+  database = createClient(dbUrl, dbKey);
 }
 
 async function cleanup() {
-  if (!supabase) return;
-  if (cleanupIds.orderId) await supabase.from("orders").delete().eq("id", cleanupIds.orderId);
-  if (cleanupIds.clientId) await supabase.from("clients").delete().eq("id", cleanupIds.clientId);
+  if (!database) return;
+  if (cleanupIds.orderId) await database.from("orders").delete().eq("id", cleanupIds.orderId);
+  if (cleanupIds.clientId) await database.from("clients").delete().eq("id", cleanupIds.clientId);
 }
 
 // ─── GATE 1: File System Integrity ───────────────────────────────────────────
@@ -130,12 +130,12 @@ async function gate2_repositories() {
       "advances-db.ts", "reports-db.ts", "settings-db.ts", "financial-reconciliation-db.ts",
     ];
 
-    const missing = repos.filter((r) => !existsSync(join(ROOT, "lib", "supabase", r)));
+    const missing = repos.filter((r) => !existsSync(join(ROOT, "lib", "database", r)));
 
     if (missing.length > 0) {
-      fail(`GATE 2A: Missing Supabase repository files: ${missing.join(", ")}`, new Error("Missing repos"));
+      fail(`GATE 2A: Missing Database repository files: ${missing.join(", ")}`, new Error("Missing repos"));
     } else {
-      pass("GATE 2A: All 20 Supabase PostgreSQL repository files verified present", {
+      pass("GATE 2A: All 20 Database PostgreSQL repository files verified present", {
         reposVerified: repos.length,
       });
     }
@@ -327,7 +327,7 @@ async function gate4_nan_safety() {
 // ─── GATE 5: Schema File Integrity ───────────────────────────────────────────
 
 async function gate5_schema_integrity() {
-  const schemaPath = join(ROOT, "supabase", "schema.sql");
+  const schemaPath = join(ROOT, "database", "schema.sql");
 
   try {
     if (!existsSync(schemaPath)) throw new Error("schema.sql not found");
@@ -408,7 +408,7 @@ async function gate6_no_mock_data() {
 
   try {
     for (const repoFile of repoFiles) {
-      const content = readFileSync(join(ROOT, "lib", "supabase", repoFile), "utf-8");
+      const content = readFileSync(join(ROOT, "lib", "database", repoFile), "utf-8");
       for (const pattern of MOCK_IDENTIFIERS) {
         if (content.includes(pattern)) throw new Error(`Mock pattern "${pattern}" found in ${repoFile}`);
       }
@@ -420,19 +420,19 @@ async function gate6_no_mock_data() {
     fail("GATE 6A: Mock data detected in repository layer", err);
   }
 
-  // 6B: Verify Supabase usage in repos
+  // 6B: Verify Database usage in repos
   try {
     for (const repoFile of repoFiles) {
-      const content = readFileSync(join(ROOT, "lib", "supabase", repoFile), "utf-8");
-      if (!content.includes("supabase")) {
-        throw new Error(`${repoFile} does not use Supabase client`);
+      const content = readFileSync(join(ROOT, "lib", "database", repoFile), "utf-8");
+      if (!content.includes("database")) {
+        throw new Error(`${repoFile} does not use Database client`);
       }
     }
-    pass("GATE 6B: All 7 repositories confirmed to use Supabase PostgreSQL as data source", {
+    pass("GATE 6B: All 7 repositories confirmed to use Database PostgreSQL as data source", {
       reposVerified: repoFiles.length,
     });
   } catch (err) {
-    fail("GATE 6B: Supabase client usage verification failed", err);
+    fail("GATE 6B: Database client usage verification failed", err);
   }
 }
 
@@ -587,13 +587,13 @@ async function gate8_navigation_routes() {
 
 async function gate9_live_db_lifecycle() {
   if (!LIVE_DB) {
-    skip("GATE 9 (Live DB Lifecycle)", "Placeholder Supabase credentials — skipped. Provide real credentials to run.");
+    skip("GATE 9 (Live DB Lifecycle)", "Placeholder Database credentials — skipped. Provide real credentials to run.");
     return;
   }
 
   // 9A: Create and verify client
   try {
-    const { data: client, error: cErr } = await supabase
+    const { data: client, error: cErr } = await database
       .from("clients")
       .insert({
         id: `cli_e2e_${E2E_TAG}`,
@@ -604,14 +604,14 @@ async function gate9_live_db_lifecycle() {
       .select().single();
     if (cErr) throw cErr;
     cleanupIds.clientId = client.id;
-    pass("GATE 9A: Live client record created in Supabase", { clientId: client.id });
+    pass("GATE 9A: Live client record created in Database", { clientId: client.id });
   } catch (err) {
     fail("GATE 9A: Live client creation failed", err);
   }
 
   // 9B: Create and verify order
   try {
-    const { data: order, error: oErr } = await supabase
+    const { data: order, error: oErr } = await database
       .from("orders")
       .insert({
         id: `ord_e2e_${E2E_TAG}`,
@@ -637,7 +637,7 @@ async function gate9_live_db_lifecycle() {
 
   // 9C: FK join verification
   try {
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("orders")
       .select("id, order_number, clients!orders_client_id_fkey(client_name)")
       .eq("id", cleanupIds.orderId)
@@ -655,7 +655,7 @@ async function gate9_live_db_lifecycle() {
   // 9D: cleanup
   try {
     await cleanup();
-    pass("GATE 9D: Live test records cleaned from Supabase database", {});
+    pass("GATE 9D: Live test records cleaned from Database database", {});
   } catch (err) {
     fail("GATE 9D: Live cleanup failed", err);
   }
@@ -799,7 +799,7 @@ async function main() {
   console.log(`Session Tag: ${E2E_TAG}`);
   console.log("================================================================================\n");
 
-  await initSupabase();
+  await initDatabase();
 
   await gate1_ui_routes();
   await gate2_repositories();

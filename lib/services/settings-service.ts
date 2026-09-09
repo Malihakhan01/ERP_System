@@ -34,7 +34,7 @@ export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
 
 export const SETTINGS_STORAGE_KEY = "factoryos_system_settings";
 
-export async function getSystemSettingsFromSupabase(): Promise<CompanySettings> {
+export async function getSystemSettingsFromDB(): Promise<CompanySettings> {
   try {
     const res = await fetch("/api/settings?key=company_profile");
     const json = await res.json();
@@ -59,7 +59,7 @@ export async function getSystemSettingsFromSupabase(): Promise<CompanySettings> 
   return DEFAULT_COMPANY_SETTINGS;
 }
 
-export async function saveSystemSettingsInSupabase(settings: CompanySettings): Promise<CompanySettings> {
+export async function saveSystemSettingsInDB(settings: CompanySettings): Promise<CompanySettings> {
   // Optimistic local update
   if (typeof window !== "undefined") {
     try {

@@ -58,12 +58,12 @@ import {
   deduplicateAndFixAdvances,
 } from "@/lib/advances-engine";
 import {
-  getPayrollRunsFromSupabase,
-  createPayrollRunInSupabase,
-  updatePayrollRecordPaidInSupabase,
+  getPayrollRunsFromDB,
+  createPayrollRunInDB,
+  updatePayrollRecordPaidInDB,
 } from "@/lib/services/payroll-service";
-import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
-import { getAdvancesFromSupabase } from "@/lib/services/advances-service";
+import { getEmployeesFromDB } from "@/lib/services/employees-service";
+import { getAdvancesFromDB } from "@/lib/services/advances-service";
 import { RoleActionButton } from "@/components/auth/RoleActionButton";
 
 const STATUS_CONFIG = {
@@ -120,9 +120,9 @@ export default function SalariesPage() {
     setLoadingPayroll(true);
     try {
       const [emps, advs, runs] = await Promise.all([
-        getEmployeesFromSupabase().catch(() => []),
-        getAdvancesFromSupabase().catch(() => []),
-        getPayrollRunsFromSupabase().catch(() => []),
+        getEmployeesFromDB().catch(() => []),
+        getAdvancesFromDB().catch(() => []),
+        getPayrollRunsFromDB().catch(() => []),
       ]);
 
       if (emps && emps.length > 0) setLocalEmployeesOverride(emps);
@@ -311,7 +311,7 @@ export default function SalariesPage() {
     });
 
     savePayrollRuns(updatedRuns);
-    updatePayrollRecordPaidInSupabase(updatedRecord, payment).catch((e) => console.error(e));
+    updatePayrollRecordPaidInDB(updatedRecord, payment).catch((e) => console.error(e));
 
     setRecordToDisburse(null);
     toast({
@@ -635,7 +635,7 @@ export default function SalariesPage() {
                 <div>
                   <h2 className="text-xl font-extrabold tracking-tight uppercase text-slate-900">FactoryOS ERP</h2>
                   <p className="text-[11px] text-slate-600">Garment Manufacturing Factory • Confidential Salary Slip</p>
-                  <p className="text-[10px] text-slate-500">Industrial Area, Karachi / Lahore, Pakistan</p>
+                  <p className="text-[10px] text-slate-500">Small Industrial Estate, Daska Road, Sialkot - 51310, Punjab, Pakistan</p>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-sm uppercase text-blue-900 bg-blue-50 px-3 py-1 rounded border border-blue-200 inline-block">
@@ -784,11 +784,19 @@ export default function SalariesPage() {
             </div>
           </div>
 
-          <ModalFooter>
+          <ModalFooter className="no-print">
             <Button variant="ghost" onClick={() => setIsPayslipModalOpen(false)}>
               Close
             </Button>
-            <Button variant="primary" leftIcon={<Printer className="h-4 w-4" />} onClick={() => window.print()}>
+            <Button
+              variant="primary"
+              leftIcon={<Printer className="h-4 w-4" />}
+              onClick={() => {
+                document.body.classList.add("print-document-active");
+                window.print();
+                document.body.classList.remove("print-document-active");
+              }}
+            >
               Print Payslip Document
             </Button>
           </ModalFooter>

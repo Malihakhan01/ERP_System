@@ -67,11 +67,11 @@ import {
 import { CURRENCY_SYMBOLS } from "@/lib/costing-engine";
 
 import {
-  getInvoicesFromSupabase,
-  createInvoiceInSupabase,
-  updateInvoiceInSupabase,
-  deleteInvoiceInSupabase,
-  recordInvoicePaymentInSupabase,
+  getInvoicesFromDB,
+  createInvoiceInDB,
+  updateInvoiceInDB,
+  deleteInvoiceInDB,
+  recordInvoicePaymentInDB,
 } from "@/lib/services/invoices-service";
 
 const STATUS_CONFIG: Record<
@@ -146,7 +146,7 @@ export default function InvoicesPage() {
   const loadInvoices = React.useCallback(async (showToast = false) => {
     setLoadingInvoices(true);
     try {
-      const data = await getInvoicesFromSupabase();
+      const data = await getInvoicesFromDB();
       if (data && data.length > 0) {
         setLocalInvoicesOverride(data);
       }
@@ -163,7 +163,7 @@ export default function InvoicesPage() {
     }
   }, [success, toastError]);
 
-  // Sync with Supabase on mount
+  // Sync with Database on mount
   React.useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
@@ -298,7 +298,7 @@ export default function InvoicesPage() {
   const [invoiceDate, setInvoiceDate] = React.useState("");
   const [dueDate, setDueDate] = React.useState("");
   const [invoiceType, setInvoiceType] = React.useState<InvoiceType>("Export Commercial Invoice");
-  const [currency, setCurrency] = React.useState<CommercialCurrency>("USD");
+  const [currency, setCurrency] = React.useState<CommercialCurrency>("PKR");
   const [status, setStatus] = React.useState<InvoiceStatus>("draft");
 
   // Commercial Items Form
@@ -386,13 +386,13 @@ export default function InvoicesPage() {
         setSelectedClientInternalId("");
         setSelectedOrderInternalId("");
         setSelectedQuotationInternalId("");
-        setCurrency("USD");
+        setCurrency("PKR");
       }
     } else {
       setSelectedClientInternalId("");
       setSelectedOrderInternalId("");
       setSelectedQuotationInternalId("");
-      setCurrency("USD");
+      setCurrency("PKR");
     }
 
     setViewMode("create");
@@ -733,7 +733,7 @@ export default function InvoicesPage() {
           {
             id: "evt_" + Date.now(),
             title: determinedStatus === "draft" ? "Invoice Draft Created" : "Commercial Invoice Issued",
-            description: `${determinedStatus === "draft" ? "Draft billing saved" : "Commercial invoice issued"} for ${pricing.quantity.toLocaleString()} pcs @ ${CURRENCY_SYMBOLS[currency] || "$"}${pricing.unitPrice.toFixed(2)} (Total: ${CURRENCY_SYMBOLS[currency] || "$"}${pricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}).`,
+            description: `${determinedStatus === "draft" ? "Draft billing saved" : "Commercial invoice issued"} for ${pricing.quantity.toLocaleString()} pcs @ ${CURRENCY_SYMBOLS[currency] || "Rs "}${pricing.unitPrice.toFixed(2)} (Total: ${CURRENCY_SYMBOLS[currency] || "Rs "}${pricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}).`,
             timestamp: nowReadable,
             type: determinedStatus === "draft" ? "created" : "issued",
             author: "Finance Lead",
@@ -745,14 +745,14 @@ export default function InvoicesPage() {
 
       const updated = [invoiceToSave, ...invoices];
       saveInvoices(updated);
-      createInvoiceInSupabase(invoiceToSave).catch((err) => console.error(err));
+      createInvoiceInDB(invoiceToSave).catch((err) => console.error(err));
       success(determinedStatus === "draft" ? "Draft Invoice Saved" : "Invoice Issued", {
         description: `Successfully created invoice ${invoiceToSave.invoiceNumber} for ${clientObj.companyName}.`,
       });
     }
 
     if (editingInternalId && activeInvoice) {
-      updateInvoiceInSupabase(invoiceToSave).catch((err) => console.error(err));
+      updateInvoiceInDB(invoiceToSave).catch((err) => console.error(err));
     }
 
     setSelectedInvoiceId(invoiceToSave.id);
@@ -783,7 +783,7 @@ export default function InvoicesPage() {
     if (isNaN(amt) || !isFinite(amt) || amt <= 0) {
       errors.amount = "Payment amount must be greater than zero.";
     } else if (amt > activeInvoice.balanceDue + 0.001) {
-      errors.amount = `Payment amount cannot exceed remaining balance due (${CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}${activeInvoice.balanceDue.toFixed(2)}).`;
+      errors.amount = `Payment amount cannot exceed remaining balance due (${CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}${activeInvoice.balanceDue.toFixed(2)}).`;
     }
 
     if (!paymentDateInput.trim()) {
@@ -815,7 +815,7 @@ export default function InvoicesPage() {
 
     const updatedInvoices = invoices.map((i) => (i.id === activeInvoice.id ? res.invoice! : i));
     saveInvoices(updatedInvoices);
-    updateInvoiceInSupabase(res.invoice).catch((err) => console.error(err));
+    updateInvoiceInDB(res.invoice).catch((err) => console.error(err));
 
     success("Payment Recorded", {
       description: `Logged ${activeInvoice.currency} ${amt.toLocaleString(undefined, { minimumFractionDigits: 2 })} for ${activeInvoice.invoiceNumber}.`,
@@ -837,7 +837,7 @@ export default function InvoicesPage() {
     if (!invoiceToDelete) return;
     const updated = invoices.filter((i) => i.id !== invoiceToDelete.id);
     saveInvoices(updated);
-    deleteInvoiceInSupabase(invoiceToDelete.id, invoiceToDelete.invoiceNumber).catch((err) => console.error(err));
+    deleteInvoiceInDB(invoiceToDelete.id, invoiceToDelete.invoiceNumber).catch((err) => console.error(err));
     success("Invoice Removed", {
       description: `Invoice ${invoiceToDelete.invoiceNumber} was permanently deleted.`,
     });
@@ -858,7 +858,7 @@ export default function InvoicesPage() {
     };
     const updated = invoices.map((i) => (i.id === archiveModalInvoice.id ? updatedInvoice : i));
     saveInvoices(updated);
-    updateInvoiceInSupabase(updatedInvoice).catch((err) => console.error(err));
+    updateInvoiceInDB(updatedInvoice).catch((err) => console.error(err));
     success("Invoice Archived", {
       description: `Invoice ${archiveModalInvoice.invoiceNumber} archived. Historical accounting records preserved.`,
     });
@@ -1128,10 +1128,10 @@ export default function InvoicesPage() {
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as CommercialCurrency)}
                       options={[
+                        { value: "PKR", label: "PKR (Rs) — Pakistani Rupee" },
                         { value: "USD", label: "USD ($) — US Dollar" },
                         { value: "EUR", label: "EUR (€) — Euro" },
                         { value: "GBP", label: "GBP (£) — British Pound" },
-                        { value: "PKR", label: "PKR (₨) — Pakistani Rupee" },
                         { value: "AED", label: "AED (AED) — UAE Dirham" },
                       ]}
                     />
@@ -1207,7 +1207,7 @@ export default function InvoicesPage() {
                         setUnitPrice(e.target.value);
                         if (formErrors.unitPrice) setFormErrors((prev) => ({ ...prev, unitPrice: "" }));
                       }}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="e.g. 21.09"
                       error={!!formErrors.unitPrice}
                     />
@@ -1220,7 +1220,7 @@ export default function InvoicesPage() {
                       min="0"
                       value={discount}
                       onChange={(e) => setDiscount(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
@@ -1232,7 +1232,7 @@ export default function InvoicesPage() {
                       min="0"
                       value={freightCharges}
                       onChange={(e) => setFreightCharges(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
@@ -1244,35 +1244,35 @@ export default function InvoicesPage() {
                       min="0"
                       value={tax}
                       onChange={(e) => setTax(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
 
                   {/* Real-time Commercial Total Display */}
-                  <div className="col-span-2 p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="col-span-full sm:col-span-2 w-full p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Subtotal:</span>
                       <p className="text-sm font-bold text-slate-900 mt-0.5">
-                        {CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Discount:</span>
                       <p className="text-sm font-bold text-slate-700 mt-0.5">
-                        -{CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        -{CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-bold text-blue-700 uppercase">Grand Invoice Total:</span>
                       <p className="text-base font-extrabold text-blue-700 mt-0.5">
-                        {CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-bold text-amber-700 uppercase">Balance Due:</span>
                       <p className="text-base font-extrabold text-amber-700 mt-0.5">
-                        {CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1303,8 +1303,8 @@ export default function InvoicesPage() {
                       onChange={(e) => setIncoterms(e.target.value)}
                       options={[
                         { value: "", label: "-- Select Incoterms (Optional) --" },
-                        { value: "FOB Sialkot", label: "FOB Sialkot / Lahore" },
-                        { value: "FOB Karachi Port", label: "FOB Karachi Port" },
+                        { value: "FOB Sialkot", label: "FOB Sialkot Dry Port (SDPT)" },
+                        { value: "FOB Sialkot Dry Port", label: "FOB Sialkot Dry Port / Sambrial" },
                         { value: "CIF London", label: "CIF Destination Port" },
                         { value: "CIF Gothenburg", label: "CIF Gothenburg" },
                         { value: "DDP Warehouse", label: "DDP Buyer Warehouse" },
@@ -1396,7 +1396,7 @@ export default function InvoicesPage() {
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1 font-mono text-blue-700 font-bold">
-                      {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
@@ -1461,7 +1461,7 @@ export default function InvoicesPage() {
               <Card className="p-3.5 border-slate-200/80 shadow-xs">
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Invoice Total</span>
                 <p className="text-lg font-bold text-slate-900 mt-0.5 truncate">
-                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{activeInvoice.quantity.toLocaleString()} Pcs billed</p>
               </Card>
@@ -1469,7 +1469,7 @@ export default function InvoicesPage() {
               <Card className="p-3.5 border-slate-200/80 shadow-xs">
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Amount Paid</span>
                 <p className="text-lg font-bold text-emerald-700 mt-0.5 truncate">
-                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p className="text-[11px] text-emerald-600 mt-0.5">
                   {activeInvoice.grandTotal > 0
@@ -1481,7 +1481,7 @@ export default function InvoicesPage() {
               <Card className="p-3.5 border-slate-200/80 shadow-xs">
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Balance Due</span>
                 <p className={`text-lg font-bold mt-0.5 truncate ${activeInvoice.balanceDue > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 <p className={`text-[11px] mt-0.5 ${activeInvoice.balanceDue > 0 ? "text-amber-600" : "text-emerald-600 font-medium"}`}>
                   {activeInvoice.balanceDue > 0 ? "Open receivable" : "Fully settled (No balance)"}
@@ -1594,19 +1594,19 @@ export default function InvoicesPage() {
                     <div className="flex justify-between">
                       <span className="text-slate-500">Gross Invoiced Total:</span>
                       <span className="font-bold text-slate-900">
-                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Total Settled / Paid:</span>
                       <span className="font-bold text-emerald-700">
-                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex justify-between pt-2 border-t border-slate-200">
                       <span className="font-bold text-slate-900">Outstanding Balance:</span>
                       <span className="text-base font-extrabold text-amber-700">
-                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -1706,19 +1706,19 @@ export default function InvoicesPage() {
                           {activeInvoice.quantity.toLocaleString()} Pcs
                         </td>
                         <td className="py-3 px-3 text-right font-medium text-slate-700">
-                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.unitPrice.toFixed(2)}
+                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.unitPrice.toFixed(2)}
                         </td>
                         <td className="py-3 px-3 text-right font-medium text-slate-800">
-                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-3 px-3 text-right font-medium text-slate-700">
-                          -{CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          -{CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-3 px-3 text-right font-medium text-slate-700">
-                          +{CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{(activeInvoice.freightCharges + activeInvoice.tax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          +{CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{(activeInvoice.freightCharges + activeInvoice.tax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-3 px-3 text-right font-extrabold text-blue-700 text-sm">
-                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "$"}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {CURRENCY_SYMBOLS[activeInvoice.currency] || "Rs "}{activeInvoice.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
                     </tbody>
@@ -1774,7 +1774,7 @@ export default function InvoicesPage() {
                             <td className="py-2.5 px-3 text-slate-900 font-semibold">{p.paymentMethod}</td>
                             <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{p.referenceNumber}</td>
                             <td className="py-2.5 px-3 text-right font-bold text-emerald-700 text-sm">
-                              {CURRENCY_SYMBOLS[p.currency] || "$"}{p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              {CURRENCY_SYMBOLS[p.currency] || "Rs "}{p.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
                             <td className="py-2.5 px-3 text-slate-600">{p.recordedBy}</td>
                             <td className="py-2.5 px-3 text-slate-500">{p.notes || "—"}</td>
@@ -2033,10 +2033,10 @@ export default function InvoicesPage() {
                     className="px-2.5 py-2 text-xs rounded-lg border border-[var(--color-erp-border)] bg-[var(--color-erp-surface)] text-[var(--color-erp-text-primary)] focus:outline-none cursor-pointer"
                   >
                     <option value="all">All Currencies</option>
+                    <option value="PKR">PKR (Rs)</option>
                     <option value="USD">USD ($)</option>
                     <option value="EUR">EUR (€)</option>
                     <option value="GBP">GBP (£)</option>
-                    <option value="PKR">PKR (₨)</option>
                     <option value="AED">AED (AED)</option>
                   </select>
 
@@ -2194,17 +2194,17 @@ export default function InvoicesPage() {
 
                             {/* Total Amount */}
                             <td className="py-3 px-4 text-right font-bold text-slate-900">
-                              {CURRENCY_SYMBOLS[inv.currency] || "$"}{inv.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              {CURRENCY_SYMBOLS[inv.currency] || "Rs "}{inv.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
 
                             {/* Amount Paid */}
                             <td className="py-3 px-4 text-right font-bold text-emerald-700">
-                              {CURRENCY_SYMBOLS[inv.currency] || "$"}{inv.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              {CURRENCY_SYMBOLS[inv.currency] || "Rs "}{inv.amountPaid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
 
                             {/* Balance Due */}
                             <td className="py-3 px-4 text-right font-extrabold text-amber-700">
-                              {CURRENCY_SYMBOLS[inv.currency] || "$"}{inv.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              {CURRENCY_SYMBOLS[inv.currency] || "Rs "}{inv.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
 
                             {/* Payment Status */}
@@ -2315,7 +2315,7 @@ export default function InvoicesPage() {
             <span>
               Outstanding Balance Due:{" "}
               <strong>
-                {CURRENCY_SYMBOLS[activeInvoice?.currency || "USD"] || "$"}{activeInvoice?.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {CURRENCY_SYMBOLS[activeInvoice?.currency || "PKR"] || "Rs "}{activeInvoice?.balanceDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </strong>
             </span>
             <span className="font-bold text-blue-700">{activeInvoice?.clientName}</span>
@@ -2329,7 +2329,7 @@ export default function InvoicesPage() {
               max={activeInvoice?.balanceDue}
               value={paymentAmountInput}
               onChange={(e) => setPaymentAmountInput(e.target.value)}
-              prefix={CURRENCY_SYMBOLS[activeInvoice?.currency || "USD"] || "$"}
+              prefix={CURRENCY_SYMBOLS[activeInvoice?.currency || "PKR"] || "Rs "}
               placeholder="Enter amount received"
               error={!!paymentErrors.amount}
             />
@@ -2410,7 +2410,7 @@ export default function InvoicesPage() {
                 Invoice <strong>{archiveModalInvoice?.invoiceNumber} ({archiveModalInvoice?.clientName})</strong> has recorded financial or contract history (
                 {archiveModalInvoice?.payments?.length ? `${archiveModalInvoice.payments.length} payment receipts, ` : ""}
                 {archiveModalInvoice?.orderNumber ? `Sales Order: ${archiveModalInvoice.orderNumber}, ` : ""}
-                Total Paid: {CURRENCY_SYMBOLS[archiveModalInvoice?.currency || "USD"] || "$"}{archiveModalInvoice?.amountPaid.toFixed(2)}
+                Total Paid: {CURRENCY_SYMBOLS[archiveModalInvoice?.currency || "PKR"] || "Rs "}{archiveModalInvoice?.amountPaid.toFixed(2)}
                 ).
               </p>
               <p className="mt-1.5 text-amber-800 font-medium">

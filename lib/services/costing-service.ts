@@ -4,8 +4,8 @@
 
 import type { CostEstimateRecord } from "../costing-engine";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -39,7 +39,7 @@ export function mapRowToCostEstimate(row: any): CostEstimateRecord {
     styleCode: row.style_code,
     styleName: row.style_name,
     batchQuantity: Number(row.order_quantity || 1),
-    currency: row.currency || "USD",
+    currency: row.currency || "PKR",
     status: row.status || "draft",
     targetDeliveryDate: undefined,
     notes: row.notes || undefined,
@@ -143,8 +143,8 @@ export function mapCostEstimateToRow(record: CostEstimateRecord) {
   };
 }
 
-export async function getCostEstimatesFromSupabase(): Promise<CostEstimateRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getCostEstimatesFromDB(): Promise<CostEstimateRecord[]> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(COSTING_STORAGE_KEY);
@@ -156,15 +156,15 @@ export async function getCostEstimatesFromSupabase(): Promise<CostEstimateRecord
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("cost_estimates")
     .select("*")
     .neq("status", "archived")
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error loading cost estimates from Supabase:", error);
+    console.error("Error loading cost estimates from Database:", error);
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(COSTING_STORAGE_KEY);
@@ -186,8 +186,8 @@ export async function getCostEstimatesFromSupabase(): Promise<CostEstimateRecord
   return list;
 }
 
-export async function createCostEstimateInSupabase(record: CostEstimateRecord): Promise<CostEstimateRecord> {
-  if (!isSupabaseConfigured()) {
+export async function createCostEstimateInDB(record: CostEstimateRecord): Promise<CostEstimateRecord> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(COSTING_STORAGE_KEY);
@@ -202,16 +202,16 @@ export async function createCostEstimateInSupabase(record: CostEstimateRecord): 
     return record;
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const payload = mapCostEstimateToRow(record);
-  const { data, error } = await supabase
+  const { data, error } = await database
     .from("cost_estimates")
     .upsert(payload, { onConflict: "estimate_number" })
     .select()
     .single();
 
   if (error) {
-    console.error("Error creating cost estimate in Supabase:", error);
+    console.error("Error creating cost estimate in Database:", error);
     return record;
   }
 
@@ -227,8 +227,8 @@ export async function createCostEstimateInSupabase(record: CostEstimateRecord): 
   return saved;
 }
 
-export async function updateCostEstimateInSupabase(record: CostEstimateRecord): Promise<CostEstimateRecord> {
-  if (!isSupabaseConfigured()) {
+export async function updateCostEstimateInDB(record: CostEstimateRecord): Promise<CostEstimateRecord> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(COSTING_STORAGE_KEY);
@@ -243,10 +243,10 @@ export async function updateCostEstimateInSupabase(record: CostEstimateRecord): 
     return record;
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const payload = mapCostEstimateToRow(record);
 
-  let query = supabase.from("cost_estimates").update(payload);
+  let query = database.from("cost_estimates").update(payload);
   if (record.id && !record.id.startsWith("cst_") && !record.id.startsWith("estimate_")) {
     query = query.eq("id", record.id);
   } else {
@@ -255,7 +255,7 @@ export async function updateCostEstimateInSupabase(record: CostEstimateRecord): 
 
   const { data, error } = await query.select().single();
   if (error) {
-    console.error("Error updating cost estimate in Supabase:", error);
+    console.error("Error updating cost estimate in Database:", error);
     return record;
   }
 
@@ -271,8 +271,8 @@ export async function updateCostEstimateInSupabase(record: CostEstimateRecord): 
   return updated;
 }
 
-export async function deleteCostEstimateInSupabase(estimateId: string, estimateNumber?: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+export async function deleteCostEstimateInDB(estimateId: string, estimateNumber?: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem(COSTING_STORAGE_KEY);
@@ -287,8 +287,8 @@ export async function deleteCostEstimateInSupabase(estimateId: string, estimateN
     return true;
   }
 
-  const supabase = createClient();
-  let query = supabase.from("cost_estimates").delete();
+  const database = createClient();
+  let query = database.from("cost_estimates").delete();
   if (estimateId && !estimateId.startsWith("cst_") && !estimateId.startsWith("estimate_")) {
     query = query.eq("id", estimateId);
   } else if (estimateNumber) {
@@ -299,7 +299,7 @@ export async function deleteCostEstimateInSupabase(estimateId: string, estimateN
 
   const { error } = await query;
   if (error) {
-    console.error("Error deleting cost estimate from Supabase:", error);
+    console.error("Error deleting cost estimate from Database:", error);
     return false;
   }
   return true;

@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Phase 2.4: Complete Stitching Line, Bundle & Floor Tracking
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — PHASE 2.4 STITCHING & FLOOR TRACKING TEST SUITE");
@@ -37,10 +37,10 @@ try {
   console.log("Note: reading env from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
 
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -462,10 +462,10 @@ async function runTests() {
     });
 
     // -------------------------------------------------------------------------
-    // TEST 29: Supabase configured as primary source of truth
+    // TEST 29: Database configured as primary source of truth
     // -------------------------------------------------------------------------
-    assert(Boolean(supabaseUrl && supabaseKey), "29. Supabase PostgreSQL configured as primary authoritative source of truth", {
-      endpoint: supabaseUrl ? supabaseUrl.replace(/https?:\/\/([^.]+).*/, "$1...") : "configured",
+    assert(Boolean(dbUrl && dbKey), "29. Database PostgreSQL configured as primary authoritative source of truth", {
+      endpoint: dbUrl ? dbUrl.replace(/https?:\/\/([^.]+).*/, "$1...") : "configured",
     });
 
     // -------------------------------------------------------------------------

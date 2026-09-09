@@ -255,6 +255,7 @@ export default function DispatchPage() {
                 <FormSection
                   title="1. Ocean Freight & Carrier Details"
                   description="Specify global freight line, container numbers, and seal integrity records"
+                  gridClassName="block space-y-4 w-full"
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField label="Shipping Line / Carrier" required>
@@ -292,6 +293,7 @@ export default function DispatchPage() {
                 <FormSection
                   title="2. Select Staged Master Cartons"
                   description="Choose verified master cartons for this container manifest"
+                  gridClassName="block space-y-4 w-full"
                 >
                   {readyCartons.length === 0 ? (
                     <p className="text-xs text-slate-500 italic">No staged cartons available. (All cartons will be auto-assigned).</p>
@@ -693,7 +695,7 @@ export default function DispatchPage() {
               <div className="space-y-3 mt-4 text-xs">
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="font-semibold text-slate-700">Commercial Invoice:</span>
-                  <span className="font-mono font-bold text-slate-900">INV-2026-001 (USD 22,000)</span>
+                  <span className="font-mono font-bold text-slate-900">INV-2026-001 (Rs 22,000)</span>
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="font-semibold text-slate-700">Packing List Lading:</span>

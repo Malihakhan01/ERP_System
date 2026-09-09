@@ -247,7 +247,7 @@ export function calculateJobProfitability(
   contractRevenue: number,
   standardCost: number,
   actualProductionCost: number,
-  currency: string = "USD"
+  currency: string = "PKR"
 ): JobProfitabilitySummary {
   const rev = Math.max(0, Number(contractRevenue) || 0);
   const stdCost = Math.max(0, Number(standardCost) || 0);
@@ -289,7 +289,7 @@ export function calculateOrderProfitability(
   paidAmount: number,
   standardCost: number,
   actualCost: number,
-  currency: string = "USD"
+  currency: string = "PKR"
 ): OrderFinancialSummary {
   const qVal = Math.max(0, Number(quotedValue) || 0);
   const oVal = Math.max(0, Number(orderedValue) || 0);
@@ -396,7 +396,7 @@ export function calculateClientFinancialLedger(
   invoices: Array<{ grandTotal: number; amountPaid: number; balanceDue: number; isOverdue: boolean }>,
   activeOrdersCount: number = 0,
   totalJobsCompleted: number = 0,
-  currency: string = "USD"
+  currency: string = "PKR"
 ): ClientFinancialSummary {
   const totalInvoiced = Number(
     (invoices || []).reduce((acc, inv) => acc + (Math.max(0, Number(inv.grandTotal) || 0)), 0).toFixed(2)

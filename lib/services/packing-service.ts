@@ -1,22 +1,22 @@
 // lib/services/packing-service.ts
-// FactoryOS PostgreSQL Supabase Repository for Packing, Cartonization & Packing List Module
+// FactoryOS PostgreSQL Database Repository for Packing, Cartonization & Packing List Module
 // Authoritative Garment Factory Polybagging, Cartonization & Dispatch Staging Engine
 
 import {
-  getProductionJobsFromSupabase,
-  getProductionJobByIdFromSupabase,
-  updateProductionJobInSupabase,
+  getProductionJobsFromDB,
+  getProductionJobByIdFromDB,
+  updateProductionJobInDB,
   addProductionTimelineEvent,
   ProductionJobRecord,
 } from "./production-service";
 import {
-  getTrackingRecordsFromSupabase,
-  updateTrackingGateInSupabase,
+  getTrackingRecordsFromDB,
+  updateTrackingGateInDB,
   TrackingShipmentRecord,
 } from "./tracking-service";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -270,10 +270,10 @@ function mapPackingCartonToRow(ctn: Partial<PackingCartonRecord>): any {
 // -----------------------------------------------------------------------------
 
 /**
- * Fetch all Packing Records from Supabase PostgreSQL
+ * Fetch all Packing Records from Database PostgreSQL
  */
-export async function getPackingRecordsFromSupabase(): Promise<PackingRecord[]> {
-  if (!isSupabaseConfigured()) {
+export async function getPackingRecordsFromDB(): Promise<PackingRecord[]> {
+  if (!isDatabaseConfigured()) {
     const list = getLocalPackingRecords();
     const cartons = getLocalPackingCartons();
     return list.map((rec) => ({
@@ -283,14 +283,14 @@ export async function getPackingRecordsFromSupabase(): Promise<PackingRecord[]> 
   }
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+    const database = createClient();
+    const { data, error } = await database
       .from("packing_records")
       .select("*, cartons:packing_cartons(*)")
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.warn("Supabase fetch error for packing_records, using fallback:", error.message);
+      console.warn("Database fetch error for packing_records, using fallback:", error.message);
       return getLocalPackingRecords();
     }
 
@@ -303,7 +303,7 @@ export async function getPackingRecordsFromSupabase(): Promise<PackingRecord[]> 
     setLocalPackingRecords(domain);
     return domain;
   } catch (err) {
-    console.error("Failed to query packing_records from Supabase:", err);
+    console.error("Failed to query packing_records from Database:", err);
     return getLocalPackingRecords();
   }
 }
@@ -311,23 +311,23 @@ export async function getPackingRecordsFromSupabase(): Promise<PackingRecord[]> 
 /**
  * Fetch single Packing Record by ID
  */
-export async function getPackingRecordByIdFromSupabase(id: string): Promise<PackingRecord | null> {
-  const all = await getPackingRecordsFromSupabase();
+export async function getPackingRecordByIdFromDB(id: string): Promise<PackingRecord | null> {
+  const all = await getPackingRecordsFromDB();
   return all.find((p) => p.id === id) || null;
 }
 
 /**
  * Fetch Packing Record for a specific production job
  */
-export async function getPackingRecordForJobFromSupabase(productionJobId: string): Promise<PackingRecord | null> {
-  const all = await getPackingRecordsFromSupabase();
+export async function getPackingRecordForJobFromDB(productionJobId: string): Promise<PackingRecord | null> {
+  const all = await getPackingRecordsFromDB();
   return all.find((p) => p.productionJobId === productionJobId) || null;
 }
 
 /**
  * Create a new Packing Record for a QA-approved Production Job
  */
-export async function createPackingRecordInSupabase(payload: {
+export async function createPackingRecordInDB(payload: {
   productionJobId: string;
   orderId?: string;
   clientId?: string;
@@ -343,7 +343,7 @@ export async function createPackingRecordInSupabase(payload: {
     throw new Error("QA approved quantity must be greater than zero to initialize packing.");
   }
 
-  const job = await getProductionJobByIdFromSupabase(payload.productionJobId);
+  const job = await getProductionJobByIdFromDB(payload.productionJobId);
   if (!job) {
     throw new Error(`Production Job '${payload.productionJobId}' not found.`);
   }
@@ -387,12 +387,12 @@ export async function createPackingRecordInSupabase(payload: {
   setLocalPackingRecords([newRecord, ...local]);
 
   // Update Tracking Gate 7 to Active / In Progress
-  const trackingShipments = await getTrackingRecordsFromSupabase();
+  const trackingShipments = await getTrackingRecordsFromDB();
   const matchedTracking = trackingShipments.find(
     (t: TrackingShipmentRecord) => t.productionJobId === payload.productionJobId || (payload.orderId && t.orderId === payload.orderId)
   );
   if (matchedTracking && matchedTracking.currentGate < 7) {
-    await updateTrackingGateInSupabase(
+    await updateTrackingGateInDB(
       matchedTracking.id,
       7,
       "packed",
@@ -410,24 +410,24 @@ export async function createPackingRecordInSupabase(payload: {
     payload.packerName
   );
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return newRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const row = mapPackingRecordToRow(newRecord);
     delete row.id;
 
-    const { data, error } = await supabase.from("packing_records").insert(row).select().single();
+    const { data, error } = await database.from("packing_records").insert(row).select().single();
     if (error || !data) {
-      console.warn("Supabase packing_records insert error, using local:", error?.message);
+      console.warn("Database packing_records insert error, using local:", error?.message);
       return newRecord;
     }
 
     return mapRowToPackingRecord(data);
   } catch (err) {
-    console.error("Failed to insert packing_record in Supabase:", err);
+    console.error("Failed to insert packing_record in Database:", err);
     return newRecord;
   }
 }
@@ -435,7 +435,7 @@ export async function createPackingRecordInSupabase(payload: {
 /**
  * Update Packing Record
  */
-export async function updatePackingRecordInSupabase(
+export async function updatePackingRecordInDB(
   id: string,
   updates: Partial<PackingRecord>
 ): Promise<PackingRecord> {
@@ -455,16 +455,16 @@ export async function updatePackingRecordInSupabase(
     throw new Error(`Packing record '${id}' not found.`);
   }
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return updatedRecord;
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
     const rowUpdates = mapPackingRecordToRow(updates);
     rowUpdates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await database
       .from("packing_records")
       .update(rowUpdates)
       .eq("id", id)
@@ -472,13 +472,13 @@ export async function updatePackingRecordInSupabase(
       .single();
 
     if (error || !data) {
-      console.warn("Supabase update error for packing_records:", error?.message);
+      console.warn("Database update error for packing_records:", error?.message);
       return updatedRecord;
     }
 
     return mapRowToPackingRecord(data);
   } catch (err) {
-    console.error("Failed to update packing_record in Supabase:", err);
+    console.error("Failed to update packing_record in Database:", err);
     return updatedRecord;
   }
 }
@@ -486,7 +486,7 @@ export async function updatePackingRecordInSupabase(
 /**
  * Create and register a new master carton with size breakdown
  */
-export async function createPackingCartonInSupabase(payload: {
+export async function createPackingCartonInDB(payload: {
   packingRecordId: string;
   productionJobId: string;
   orderId?: string;
@@ -515,7 +515,7 @@ export async function createPackingCartonInSupabase(payload: {
     );
   }
 
-  const packingRec = await getPackingRecordByIdFromSupabase(payload.packingRecordId);
+  const packingRec = await getPackingRecordByIdFromDB(payload.packingRecordId);
   if (!packingRec) {
     throw new Error(`Packing record '${payload.packingRecordId}' not found.`);
   }
@@ -562,7 +562,7 @@ export async function createPackingCartonInSupabase(payload: {
   setLocalPackingCartons([newCarton, ...localCartons]);
 
   // Update parent packing record totals
-  await updatePackingRecordInSupabase(payload.packingRecordId, {
+  await updatePackingRecordInDB(payload.packingRecordId, {
     packedQuantity: newPackedTotal,
     pendingQuantity: Math.max(0, packingRec.qaApprovedQuantity - newPackedTotal),
     totalCartons: cartonIndex,
@@ -610,11 +610,11 @@ export async function createPackingCartonInSupabase(payload: {
 /**
  * Complete packing session and advance stage to dispatch-ready
  */
-export async function completePackingInSupabase(
+export async function completePackingInDB(
   packingRecordId: string,
   actor: string = "Packing Supervisor"
 ): Promise<PackingRecord> {
-  const packingRec = await getPackingRecordByIdFromSupabase(packingRecordId);
+  const packingRec = await getPackingRecordByIdFromDB(packingRecordId);
   if (!packingRec) {
     throw new Error(`Packing record '${packingRecordId}' not found.`);
   }
@@ -623,27 +623,27 @@ export async function completePackingInSupabase(
     throw new Error("Cannot complete packing: Zero cartons or pieces packed.");
   }
 
-  const updatedRec = await updatePackingRecordInSupabase(packingRecordId, {
+  const updatedRec = await updatePackingRecordInDB(packingRecordId, {
     packingStatus: "completed",
     pendingQuantity: 0,
   });
 
   // Advance Production Job stage
-  const job = await getProductionJobByIdFromSupabase(packingRec.productionJobId);
+  const job = await getProductionJobByIdFromDB(packingRec.productionJobId);
   if (job) {
-    await updateProductionJobInSupabase(packingRec.productionJobId, {
+    await updateProductionJobInDB(packingRec.productionJobId, {
       stage: "packed",
       status: "in_production",
     });
   }
 
   // Update Tracking Gate 7 to Completed & Gate 8 (Dispatch Ready)
-  const trackingShipments = await getTrackingRecordsFromSupabase();
+  const trackingShipments = await getTrackingRecordsFromDB();
   const matchedTracking = trackingShipments.find(
     (t: TrackingShipmentRecord) => t.productionJobId === packingRec.productionJobId || (packingRec.orderId && t.orderId === packingRec.orderId)
   );
   if (matchedTracking) {
-    await updateTrackingGateInSupabase(
+    await updateTrackingGateInDB(
       matchedTracking.id,
       7,
       "packed",
@@ -667,11 +667,11 @@ export async function completePackingInSupabase(
 /**
  * Fetch master cartons for a packing record or job
  */
-export async function getPackingCartonsFromSupabase(
+export async function getPackingCartonsFromDB(
   packingRecordId?: string,
   productionJobId?: string
 ): Promise<PackingCartonRecord[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     let local = getLocalPackingCartons();
     if (packingRecordId) local = local.filter((c) => c.packingRecordId === packingRecordId);
     if (productionJobId) local = local.filter((c) => c.productionJobId === productionJobId);
@@ -679,14 +679,14 @@ export async function getPackingCartonsFromSupabase(
   }
 
   try {
-    const supabase = createClient();
-    let query = supabase.from("packing_cartons").select("*").order("carton_index", { ascending: true });
+    const database = createClient();
+    let query = database.from("packing_cartons").select("*").order("carton_index", { ascending: true });
     if (packingRecordId) query = query.eq("packing_record_id", packingRecordId);
     if (productionJobId) query = query.eq("production_job_id", productionJobId);
 
     const { data, error } = await query;
     if (error) {
-      console.warn("Supabase carton fetch error, using local:", error.message);
+      console.warn("Database carton fetch error, using local:", error.message);
       let local = getLocalPackingCartons();
       if (packingRecordId) local = local.filter((c) => c.packingRecordId === packingRecordId);
       if (productionJobId) local = local.filter((c) => c.productionJobId === productionJobId);
@@ -711,12 +711,12 @@ export async function resolveCartonBarcode(barcode: string): Promise<{
   packingRecord?: PackingRecord;
   productionJob?: ProductionJobRecord;
 } | null> {
-  const allCartons = await getPackingCartonsFromSupabase();
+  const allCartons = await getPackingCartonsFromDB();
   const carton = allCartons.find((c) => c.cartonBarcode === barcode || c.cartonNumber === barcode);
   if (!carton) return null;
 
-  const packingRecord = await getPackingRecordByIdFromSupabase(carton.packingRecordId);
-  const productionJob = await getProductionJobByIdFromSupabase(carton.productionJobId);
+  const packingRecord = await getPackingRecordByIdFromDB(carton.packingRecordId);
+  const productionJob = await getProductionJobByIdFromDB(carton.productionJobId);
 
   return {
     carton,
@@ -728,10 +728,10 @@ export async function resolveCartonBarcode(barcode: string): Promise<{
 /**
  * Fetch Packing Queue: jobs ready for packing (QA passed or in stage qa/packed)
  */
-export async function getPackingQueueFromSupabase(): Promise<PackingQueueItem[]> {
+export async function getPackingQueueFromDB(): Promise<PackingQueueItem[]> {
   const [jobs, packingRecords] = await Promise.all([
-    getProductionJobsFromSupabase(),
-    getPackingRecordsFromSupabase(),
+    getProductionJobsFromDB(),
+    getPackingRecordsFromDB(),
   ]);
 
   const candidateJobs = jobs.filter(
@@ -756,11 +756,11 @@ export async function getPackingQueueFromSupabase(): Promise<PackingQueueItem[]>
 /**
  * Calculate live Packing Floor KPIs strictly from database
  */
-export async function getPackingKPIsFromSupabase(): Promise<PackingKPIData> {
+export async function getPackingKPIsFromDB(): Promise<PackingKPIData> {
   const [records, cartons, queue] = await Promise.all([
-    getPackingRecordsFromSupabase(),
-    getPackingCartonsFromSupabase(),
-    getPackingQueueFromSupabase(),
+    getPackingRecordsFromDB(),
+    getPackingCartonsFromDB(),
+    getPackingQueueFromDB(),
   ]);
 
   if (records.length === 0 && cartons.length === 0) {

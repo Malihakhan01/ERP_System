@@ -38,7 +38,7 @@ export interface StockMovementRecord {
 export const INVENTORY_STORAGE_KEY = "factoryos_inventory_items";
 export const MOVEMENTS_STORAGE_KEY = "factoryos_stock_movements";
 
-export async function getInventoryFromSupabase(): Promise<InventoryItem[]> {
+export async function getInventoryFromDB(): Promise<InventoryItem[]> {
   try {
     const res = await fetch("/api/inventory");
     const json = await res.json();
@@ -61,7 +61,7 @@ export async function getInventoryFromSupabase(): Promise<InventoryItem[]> {
   return [];
 }
 
-export async function getStockMovementsFromSupabase(): Promise<StockMovementRecord[]> {
+export async function getStockMovementsFromDB(): Promise<StockMovementRecord[]> {
   try {
     const res = await fetch("/api/inventory?type=movements");
     const json = await res.json();
@@ -84,7 +84,7 @@ export async function getStockMovementsFromSupabase(): Promise<StockMovementReco
   return [];
 }
 
-export async function createInventoryItemInSupabase(item: InventoryItem): Promise<InventoryItem> {
+export async function createInventoryItemInDB(item: InventoryItem): Promise<InventoryItem> {
   try {
     const res = await fetch("/api/inventory", {
       method: "POST",
@@ -111,7 +111,7 @@ export async function createInventoryItemInSupabase(item: InventoryItem): Promis
   return item;
 }
 
-export async function updateInventoryItemInSupabase(item: InventoryItem): Promise<InventoryItem> {
+export async function updateInventoryItemInDB(item: InventoryItem): Promise<InventoryItem> {
   try {
     await fetch(`/api/inventory/${item.id}`, {
       method: "PUT",
@@ -134,7 +134,7 @@ export async function updateInventoryItemInSupabase(item: InventoryItem): Promis
   return item;
 }
 
-export async function recordStockMovementInSupabase(movement: StockMovementRecord): Promise<StockMovementRecord> {
+export async function recordStockMovementInDB(movement: StockMovementRecord): Promise<StockMovementRecord> {
   try {
     const res = await fetch("/api/inventory/movement", {
       method: "POST",

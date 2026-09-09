@@ -21,7 +21,7 @@ export async function getEmployeesFromMySQL(): Promise<EmployeeRecord[]> {
         cnic: r.cnic || "",
         phone: r.phone || "",
         email: r.email || undefined,
-        currentAddress: "Sialkot / Karachi Garment Zone",
+        currentAddress: r.address || "Small Industrial Estate / Daska Road, Sialkot",
         dateOfBirth: "1995-05-15",
         gender: "Male",
         maritalStatus: "Married",
@@ -75,10 +75,44 @@ export async function getEmployeeByIdFromMySQL(id: string): Promise<EmployeeReco
   return employees.find((e) => e.id === String(rows[0].id)) || null;
 }
 
-export async function createEmployeeInMySQL(data: any): Promise<string> {
-  const maxRows = await executeQuery<any>("SELECT COALESCE(MAX(id), 0) as max_id FROM `employees`");
-  const nextNum = (maxRows[0]?.max_id || 0) + 1;
-  const empNum = data.employeeNumber || `EMP-2026-${String(nextNum).padStart(3, "0")}`;
+export async function getNextEmployeeNumberFromMySQL(): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const yearPrefix = `EMP-${currentYear}-`;
+  const rows = await executeQuery<any>(
+    "SELECT employee_number FROM `employees` WHERE employee_number LIKE ? ORDER BY id DESC",
+    [`${yearPrefix}%`]
+  );
+
+  let maxNum = 0;
+  for (const r of rows) {
+    if (r.employee_number) {
+      const numPart = parseInt(r.employee_number.replace(yearPrefix, ""), 10);
+      if (!isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    }
+  }
+
+  const nextNum = maxNum + 1;
+  return `${yearPrefix}${String(nextNum).padStart(3, "0")}`;
+}
+
+export async function createEmployeeInMySQL(data: any): Promise<{ id: string; employeeNumber: string }> {
+  let empNum = data.employeeNumber;
+
+  if (!empNum) {
+    empNum = await getNextEmployeeNumberFromMySQL();
+  } else {
+    // Check if the requested employee_number already exists in database
+    const existing = await executeQuery<any>(
+      "SELECT id FROM `employees` WHERE employee_number = ? LIMIT 1",
+      [empNum]
+    );
+    if (existing && existing.length > 0) {
+      // Auto-assign the next guaranteed unique sequential number
+      empNum = await getNextEmployeeNumberFromMySQL();
+    }
+  }
 
   const fullName = data.personalInfo?.fullName || data.fullName || "New Employee";
   const fatherName = data.personalInfo?.fatherName || data.fatherName || null;
@@ -121,7 +155,7 @@ export async function createEmployeeInMySQL(data: any): Promise<string> {
     is_archived: 0,
   });
 
-  return String(insertId);
+  return { id: String(insertId), employeeNumber: empNum };
 }
 
 export async function updateEmployeeInMySQL(id: string, data: Partial<EmployeeRecord>): Promise<boolean> {

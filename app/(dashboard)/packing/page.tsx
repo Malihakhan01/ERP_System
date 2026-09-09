@@ -31,9 +31,10 @@ import {
   FileCheck,
   Printer,
   Tag,
+  X,
 } from "lucide-react";
 import type { PackingCartonRecord, PackingQueueItem, PackingKPIData } from "@/lib/services/packing-service";
-import { getProductionJobsFromSupabase, ProductionJobRecord } from "@/lib/services/production-service";
+import { getProductionJobsFromDB, ProductionJobRecord } from "@/lib/services/production-service";
 import { useBarcodeScanner, BarcodeScannerBanner } from "@/lib/hooks/useBarcodeScanner";
 import { MasterCartonShippingLabel } from "@/components/packing/MasterCartonShippingLabel";
 
@@ -141,7 +142,7 @@ export default function PackingPage() {
       const [cartRes, qRes, jobs, metRes] = await Promise.all([
         fetch("/api/packing").then((r) => (r.ok ? r.json() : { success: false, data: [] })).catch(() => ({ success: false, data: [] })),
         fetch("/api/packing?view=queue").then((r) => (r.ok ? r.json() : { success: false, data: [] })).catch(() => ({ success: false, data: [] })),
-        getProductionJobsFromSupabase().catch(() => []),
+        getProductionJobsFromDB().catch(() => []),
         fetch("/api/packing/metrics").then((r) => (r.ok ? r.json() : { success: false, data: null })).catch(() => ({ success: false, data: null })),
       ]);
 
@@ -337,10 +338,11 @@ export default function PackingPage() {
                 <FormSection
                   title="1. Source Production Work Order"
                   description="Select the QA-approved work order ready for export packaging"
+                  gridClassName="block space-y-4 w-full"
                 >
-                  <FormField label="Select Production Job" required>
+                  <FormField label="Select Production Job" required className="w-full">
                     <select
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none shadow-xs"
                       value={selectedJobId}
                       onChange={(e) => handleSelectJob(e.target.value)}
                     >
@@ -354,7 +356,7 @@ export default function PackingPage() {
                   </FormField>
 
                   {selectedJob && (
-                    <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 sm:grid-cols-4">
+                    <div className="w-full grid grid-cols-2 gap-4 rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 sm:grid-cols-4">
                       <div>
                         <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Buyer</span>
                         <p className="mt-0.5 text-sm font-bold text-slate-900 truncate">{selectedJob.clientName}</p>
@@ -380,62 +382,61 @@ export default function PackingPage() {
                 <FormSection
                   title="2. Carton Dimensions & Weights"
                   description="Specify corrugated carton specs, tare weights, and packing type"
+                  gridClassName="grid grid-cols-1 gap-4 sm:grid-cols-3 w-full"
                 >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <FormField label="Packing Type">
-                      <select
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
-                        value={formPackingType}
-                        onChange={(e) => setFormPackingType(e.target.value)}
-                      >
-                        <option value="Master Solid Carton">Master Solid Carton (Single Size)</option>
-                        <option value="Assorted Ratio Carton">Assorted Ratio Carton (S:M:L)</option>
-                        <option value="Custom Buyer Pack">Custom Buyer Polybag Pack</option>
-                      </select>
-                    </FormField>
+                  <FormField label="Packing Type" className="w-full">
+                    <select
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                      value={formPackingType}
+                      onChange={(e) => setFormPackingType(e.target.value)}
+                    >
+                      <option value="Master Solid Carton">Master Solid Carton (Single Size)</option>
+                      <option value="Assorted Ratio Carton">Assorted Ratio Carton (S:M:L)</option>
+                      <option value="Custom Buyer Pack">Custom Buyer Polybag Pack</option>
+                    </select>
+                  </FormField>
 
-                    <FormField label="Gross Weight (KG)" required>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formGrossWeight}
-                        onChange={(e) => setFormGrossWeight(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormField>
+                  <FormField label="Gross Weight (KG)" required className="w-full">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formGrossWeight}
+                      onChange={(e) => setFormGrossWeight(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormField>
 
-                    <FormField label="Net Weight (KG)" required>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formNetWeight}
-                        onChange={(e) => setFormNetWeight(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormField>
+                  <FormField label="Net Weight (KG)" required className="w-full">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formNetWeight}
+                      onChange={(e) => setFormNetWeight(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormField>
 
-                    <FormField label="Length (cm)">
-                      <Input
-                        type="number"
-                        value={formLengthCm}
-                        onChange={(e) => setFormLengthCm(parseInt(e.target.value, 10) || 0)}
-                      />
-                    </FormField>
+                  <FormField label="Length (cm)" className="w-full">
+                    <Input
+                      type="number"
+                      value={formLengthCm}
+                      onChange={(e) => setFormLengthCm(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormField>
 
-                    <FormField label="Width (cm)">
-                      <Input
-                        type="number"
-                        value={formWidthCm}
-                        onChange={(e) => setFormWidthCm(parseInt(e.target.value, 10) || 0)}
-                      />
-                    </FormField>
+                  <FormField label="Width (cm)" className="w-full">
+                    <Input
+                      type="number"
+                      value={formWidthCm}
+                      onChange={(e) => setFormWidthCm(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormField>
 
-                    <FormField label="Height (cm)">
-                      <Input
-                        type="number"
-                        value={formHeightCm}
-                        onChange={(e) => setFormHeightCm(parseInt(e.target.value, 10) || 0)}
-                      />
-                    </FormField>
-                  </div>
+                  <FormField label="Height (cm)" className="w-full">
+                    <Input
+                      type="number"
+                      value={formHeightCm}
+                      onChange={(e) => setFormHeightCm(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormField>
                 </FormSection>
               </Card>
 
@@ -443,45 +444,68 @@ export default function PackingPage() {
                 <FormSection
                   title="3. Packaged Items & Size Breakdown"
                   description="Configure the exact garments packed inside this master carton"
+                  gridClassName="block space-y-4 w-full"
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full">
                     {cartonItems.map((item, idx) => (
-                      <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                        <FormField label="Size">
-                          <Input
-                            value={item.size}
-                            onChange={(e) => {
-                              const updated = [...cartonItems];
-                              updated[idx].size = e.target.value;
-                              setCartonItems(updated);
-                            }}
-                          />
-                        </FormField>
-                        <FormField label="Colorway">
-                          <Input
-                            value={item.colorway}
-                            onChange={(e) => {
-                              const updated = [...cartonItems];
-                              updated[idx].colorway = e.target.value;
-                              setCartonItems(updated);
-                            }}
-                          />
-                        </FormField>
-                        <FormField label="Quantity (Pieces)">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const updated = [...cartonItems];
-                              updated[idx].quantity = parseInt(e.target.value, 10) || 0;
+                      <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl w-full">
+                        <div className="flex-1 min-w-0">
+                          <FormField label="Size">
+                            <Input
+                              value={item.size}
+                              onChange={(e) => {
+                                const updated = [...cartonItems];
+                                updated[idx].size = e.target.value;
+                                setCartonItems(updated);
+                              }}
+                            />
+                          </FormField>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <FormField label="Colorway">
+                            <Input
+                              value={item.colorway}
+                              onChange={(e) => {
+                                const updated = [...cartonItems];
+                                updated[idx].colorway = e.target.value;
+                                setCartonItems(updated);
+                              }}
+                            />
+                          </FormField>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <FormField label="Quantity (Pieces)">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const updated = [...cartonItems];
+                                updated[idx].quantity = parseInt(e.target.value, 10) || 0;
+                                setCartonItems(updated);
+                                const totalUnits = updated.reduce((s, it) => s + it.quantity, 0);
+                                setFormGrossWeight(Number((totalUnits * 0.45 + 1.2).toFixed(2)));
+                                setFormNetWeight(Number((totalUnits * 0.45).toFixed(2)));
+                              }}
+                            />
+                          </FormField>
+                        </div>
+                        {cartonItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = cartonItems.filter((_, i) => i !== idx);
                               setCartonItems(updated);
                               const totalUnits = updated.reduce((s, it) => s + it.quantity, 0);
                               setFormGrossWeight(Number((totalUnits * 0.45 + 1.2).toFixed(2)));
                               setFormNetWeight(Number((totalUnits * 0.45).toFixed(2)));
                             }}
-                          />
-                        </FormField>
+                            className="p-2.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors self-end sm:self-auto mb-0.5 cursor-pointer"
+                            title="Remove Size Row"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     ))}
 

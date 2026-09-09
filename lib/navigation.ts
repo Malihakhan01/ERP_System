@@ -2,6 +2,7 @@
 
 import {
   LayoutDashboard,
+  UserCheck,
   Package,
   Layers,
   ShoppingCart,
@@ -31,6 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, module: "dashboard" },
+      { label: "Worker Portal", href: "/portal", icon: UserCheck, module: "portal" },
     ],
   },
   {

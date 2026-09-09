@@ -13,8 +13,8 @@ import {
   createBlankEmployeeRecord,
 } from "../employees-engine";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -45,7 +45,7 @@ export const ALLOWED_MIME_TYPES = [
 ];
 
 /**
- * Check if real Supabase credentials are configured in environment
+ * Check if real Database credentials are configured in environment
  */
 
 /**
@@ -60,7 +60,7 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
- * Map PostgreSQL row from Supabase to frontend EmployeeRecord domain model
+ * Map PostgreSQL row from Database to frontend EmployeeRecord domain model
  */
 export function mapRowToEmployeeRecord(
   row: any,
@@ -190,7 +190,7 @@ export function mapRowToEmployeeRecord(
 }
 
 /**
- * Map frontend EmployeeRecord to Supabase PostgreSQL table columns
+ * Map frontend EmployeeRecord to Database PostgreSQL table columns
  */
 export function mapEmployeeRecordToRow(record: EmployeeRecord) {
   return {
@@ -244,7 +244,7 @@ export function mapEmployeeRecordToRow(record: EmployeeRecord) {
 /**
  * FETCH ALL EMPLOYEES
  */
-export async function getEmployeesFromSupabase(): Promise<EmployeeRecord[]> {
+export async function getEmployeesFromDB(): Promise<EmployeeRecord[]> {
   try {
     const res = await fetch("/api/employees");
     const json = await res.json();
@@ -259,14 +259,11 @@ export async function getEmployeesFromSupabase(): Promise<EmployeeRecord[]> {
 }
 
 /**
- * CREATE NEW EMPLOYEE IN SUPABASE
+ * CREATE NEW EMPLOYEE IN MYSQL DATABASE
  */
-export async function createEmployeeInSupabase(record: EmployeeRecord): Promise<EmployeeRecord> {
-  const currentLocal = getLocalEmployees();
-  const filtered = currentLocal.filter((e) => e.id !== record.id && e.employeeNumber !== record.employeeNumber);
-  const updatedLocal = [record, ...filtered];
-  setLocalEmployees(updatedLocal);
-
+export async function createEmployeeInDB(
+  record: EmployeeRecord
+): Promise<{ success: boolean; data?: EmployeeRecord; message?: string }> {
   try {
     const res = await fetch("/api/employees", {
       method: "POST",
@@ -274,39 +271,55 @@ export async function createEmployeeInSupabase(record: EmployeeRecord): Promise<
       body: JSON.stringify(record),
     });
     const json = await res.json();
-    if (json.success && json.data?.id) {
-      record.id = String(json.data.id);
-    }
-  } catch (err) {
-    console.error("MySQL API insert exception:", err);
-  }
 
-  return record;
+    if (res.ok && json.success) {
+      if (json.data?.id) record.id = String(json.data.id);
+      if (json.data?.employeeNumber) record.employeeNumber = String(json.data.employeeNumber);
+
+      const currentLocal = getLocalEmployees();
+      const filtered = currentLocal.filter((e) => e.id !== record.id && e.employeeNumber !== record.employeeNumber);
+      setLocalEmployees([record, ...filtered]);
+
+      return { success: true, data: record };
+    } else {
+      return { success: false, message: json.message || "Failed to save employee to database." };
+    }
+  } catch (err: any) {
+    console.error("MySQL API insert exception:", err);
+    return { success: false, message: err.message || "Network error connecting to server." };
+  }
 }
 
 /**
- * UPDATE EMPLOYEE IN SUPABASE
+ * UPDATE EMPLOYEE IN DATABASE
  */
-export async function updateEmployeeInSupabase(record: EmployeeRecord): Promise<EmployeeRecord> {
-  const currentLocal = getLocalEmployees();
-  const updatedLocal = currentLocal.map((e) => (e.id === record.id ? record : e));
-  setLocalEmployees(updatedLocal);
-
+export async function updateEmployeeInDB(
+  record: EmployeeRecord
+): Promise<{ success: boolean; data?: EmployeeRecord; message?: string }> {
   try {
-    await fetch(`/api/employees/${record.id}`, {
+    const res = await fetch(`/api/employees/${record.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record),
     });
-  } catch (err) {
-    console.error("MySQL API update exception:", err);
-  }
+    const json = await res.json().catch(() => ({}));
 
-  return record;
+    if (res.ok && json.success !== false) {
+      const currentLocal = getLocalEmployees();
+      const updatedLocal = currentLocal.map((e) => (e.id === record.id ? record : e));
+      setLocalEmployees(updatedLocal);
+      return { success: true, data: record };
+    } else {
+      return { success: false, message: json.message || "Failed to update employee in database." };
+    }
+  } catch (err: any) {
+    console.error("MySQL API update exception:", err);
+    return { success: false, message: err.message || "Network error updating employee." };
+  }
 }
 
 /**
- * REAL FILE UPLOAD WORKFLOW: SUPABASE STORAGE BUCKET `employee-docs`
+ * REAL FILE UPLOAD WORKFLOW: DATABASE STORAGE BUCKET `employee-docs`
  * Uploads file to path: {employee_id}/{timestamp}_{clean_filename}
  * Generates secure URL and creates record in `employee_documents` table
  */
@@ -350,7 +363,7 @@ export async function uploadEmployeeDocumentFile(
   const docId = `doc_${Date.now()}`;
 
   // 2. Offline / Local Fallback Mode
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     let localUrl = "";
     try {
       localUrl = URL.createObjectURL(file);
@@ -385,14 +398,14 @@ export async function uploadEmployeeDocumentFile(
     return { success: true, document: newDoc };
   }
 
-  // 3. Live Supabase Storage & Database Upload
+  // 3. Live Database Storage & Database Upload
   try {
-    const supabase = createClient();
+    const database = createClient();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storagePath = `${employeeId}/${Date.now()}_${sanitizedFileName}`;
 
     // Upload to bucket `employee-docs`
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await database.storage
       .from("employee-docs")
       .upload(storagePath, file, {
         cacheControl: "3600",
@@ -400,16 +413,16 @@ export async function uploadEmployeeDocumentFile(
       });
 
     if (uploadError) {
-      console.error("Supabase storage upload failed:", uploadError);
+      console.error("Database storage upload failed:", uploadError);
       return { success: false, error: `Storage upload failed: ${uploadError.message}` };
     }
 
     // Get Public URL
-    const { data: urlData } = supabase.storage.from("employee-docs").getPublicUrl(storagePath);
+    const { data: urlData } = database.storage.from("employee-docs").getPublicUrl(storagePath);
     const fileUrl = urlData?.publicUrl || "";
 
     // Insert record into `employee_documents`
-    const { data: docRecord, error: dbError } = await supabase
+    const { data: docRecord, error: dbError } = await database
       .from("employee_documents")
       .insert({
         employee_id: employeeId,
@@ -424,12 +437,12 @@ export async function uploadEmployeeDocumentFile(
       .single();
 
     if (dbError) {
-      console.error("Supabase document database insert failed:", dbError);
+      console.error("Database document database insert failed:", dbError);
       return { success: false, error: `Database insert failed: ${dbError.message}` };
     }
 
     // Log timeline
-    await supabase.from("employee_timeline").insert({
+    await database.from("employee_timeline").insert({
       employee_id: employeeId,
       event_type: "document_uploaded",
       title: "Document Attached",
@@ -488,23 +501,23 @@ export async function deleteEmployeeDocumentFile(
   });
   setLocalEmployees(updated);
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return { success: true };
   }
 
   try {
-    const supabase = createClient();
+    const database = createClient();
 
     // 1. Delete from storage bucket if path provided
     if (storagePath) {
-      await supabase.storage.from("employee-docs").remove([storagePath]);
+      await database.storage.from("employee-docs").remove([storagePath]);
     }
 
     // 2. Delete from employee_documents table
-    await supabase.from("employee_documents").delete().eq("id", documentId);
+    await database.from("employee_documents").delete().eq("id", documentId);
 
     // 3. Log timeline
-    await supabase.from("employee_timeline").insert({
+    await database.from("employee_timeline").insert({
       employee_id: employeeId,
       event_type: "updated",
       title: "Document Removed",
@@ -514,7 +527,7 @@ export async function deleteEmployeeDocumentFile(
 
     return { success: true };
   } catch (err: any) {
-    console.error("Failed to delete document from Supabase:", err);
+    console.error("Failed to delete document from Database:", err);
     return { success: false, error: err.message || "Failed to delete document" };
   }
 }

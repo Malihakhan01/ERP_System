@@ -4,7 +4,7 @@
 import type { OrderRecord } from "../orders-engine";
 import { ORDER_STORAGE_KEY, INITIAL_ORDERS } from "../orders-engine";
 
-export async function getOrdersFromSupabase(): Promise<OrderRecord[]> {
+export async function getOrdersFromDB(): Promise<OrderRecord[]> {
   try {
     const res = await fetch("/api/orders");
     const json = await res.json();
@@ -27,7 +27,7 @@ export async function getOrdersFromSupabase(): Promise<OrderRecord[]> {
   return INITIAL_ORDERS;
 }
 
-export async function createOrderInSupabase(order: OrderRecord): Promise<OrderRecord> {
+export async function createOrderInDB(order: OrderRecord): Promise<OrderRecord> {
   try {
     const res = await fetch("/api/orders", {
       method: "POST",
@@ -54,7 +54,7 @@ export async function createOrderInSupabase(order: OrderRecord): Promise<OrderRe
   return order;
 }
 
-export async function updateOrderInSupabase(order: OrderRecord): Promise<OrderRecord> {
+export async function updateOrderInDB(order: OrderRecord): Promise<OrderRecord> {
   try {
     await fetch(`/api/orders/${order.id}`, {
       method: "PUT",
@@ -77,7 +77,7 @@ export async function updateOrderInSupabase(order: OrderRecord): Promise<OrderRe
   return order;
 }
 
-export async function deleteOrderInSupabase(id: string, orderNumber?: string): Promise<boolean> {
+export async function deleteOrderInDB(id: string, orderNumber?: string): Promise<boolean> {
   try {
     await fetch(`/api/orders/${id}`, {
       method: "DELETE",

@@ -59,12 +59,12 @@ import {
 import { CURRENCY_SYMBOLS } from "@/lib/costing-engine";
 
 import {
-  getQuotationsFromSupabase,
-  createQuotationInSupabase,
-  updateQuotationInSupabase,
-  deleteQuotationInSupabase,
+  getQuotationsFromDB,
+  createQuotationInDB,
+  updateQuotationInDB,
+  deleteQuotationInDB,
 } from "@/lib/services/quotations-service";
-import { createOrderInSupabase } from "@/lib/services/orders-service";
+import { createOrderInDB } from "@/lib/services/orders-service";
 
 const STATUS_CONFIG: Record<
   QuotationStatus,
@@ -167,7 +167,7 @@ export default function QuotationsPage() {
   const loadQuotations = React.useCallback(async (showToast = false) => {
     setLoadingQuotations(true);
     try {
-      const data = await getQuotationsFromSupabase();
+      const data = await getQuotationsFromDB();
       if (data && data.length > 0) {
         setLocalQuotationsOverride(data);
       }
@@ -184,7 +184,7 @@ export default function QuotationsPage() {
     }
   }, [success, toastError]);
 
-  // Sync with Supabase on mount
+  // Sync with Database on mount
   React.useEffect(() => {
     loadQuotations();
   }, [loadQuotations]);
@@ -285,7 +285,7 @@ export default function QuotationsPage() {
   const [quotationDate, setQuotationDate] = React.useState("");
   const [validUntil, setValidUntil] = React.useState("");
   const [quotationType, setQuotationType] = React.useState<QuotationType>("Export Bulk Proposal");
-  const [currency, setCurrency] = React.useState<CommercialCurrency>("USD");
+  const [currency, setCurrency] = React.useState<CommercialCurrency>("PKR");
   const [status, setStatus] = React.useState<QuotationStatus>("draft");
 
   // Garment Details Form
@@ -378,7 +378,7 @@ export default function QuotationsPage() {
       setSelectedClientInternalId(preselectedClientId);
       const client = availableClients.find((c) => c.id === preselectedClientId);
       if (client) {
-        setCurrency(client.commercialInfo.currency || "USD");
+        setCurrency(client.commercialInfo.currency || "PKR");
         setPaymentTerms(client.commercialInfo.paymentTerms || "");
         setIncoterms(client.commercialInfo.incoterms || "");
         setShippingMethod(client.commercialInfo.preferredShippingMethod || "");
@@ -386,7 +386,7 @@ export default function QuotationsPage() {
       }
     } else {
       setSelectedClientInternalId("");
-      setCurrency("USD");
+      setCurrency("PKR");
       setPaymentTerms("");
       setIncoterms("");
       setShippingMethod("");
@@ -747,14 +747,14 @@ export default function QuotationsPage() {
 
       const updated = [quoteToSave, ...quotations];
       saveQuotations(updated);
-      createQuotationInSupabase(quoteToSave).catch((err) => console.error(err));
+      createQuotationInDB(quoteToSave).catch((err) => console.error(err));
       success(determinedStatus === "draft" ? "Draft Quotation Saved" : "Quotation Issued", {
         description: `Successfully created proposal ${quoteToSave.quotationNumber} for ${clientObj.companyName}.`,
       });
     }
 
     if (editingInternalId && activeQuotation) {
-      updateQuotationInSupabase(quoteToSave).catch((err) => console.error(err));
+      updateQuotationInDB(quoteToSave).catch((err) => console.error(err));
     }
 
     setSelectedQuotationId(quoteToSave.id);
@@ -831,7 +831,7 @@ export default function QuotationsPage() {
 
     const updatedQuotations = quotations.map((q) => (q.id === quote.id ? updatedQuote : q));
     saveQuotations(updatedQuotations);
-    updateQuotationInSupabase(updatedQuote).catch((err) => console.error(err));
+    updateQuotationInDB(updatedQuote).catch((err) => console.error(err));
 
     success("Converted to Sales Order", {
       description: `Created Sales Order ${conversionResult.orderNumber} from proposal ${quote.quotationNumber}.`,
@@ -868,7 +868,7 @@ export default function QuotationsPage() {
 
     const updated = quotations.map((q) => (q.id === quote.id ? updatedQuote : q));
     saveQuotations(updated);
-    updateQuotationInSupabase(updatedQuote).catch((err) => console.error(err));
+    updateQuotationInDB(updatedQuote).catch((err) => console.error(err));
     success("Status Updated", {
       description: `${quote.quotationNumber} is now ${STATUS_CONFIG[newStatus]?.label || newStatus}.`,
     });
@@ -887,7 +887,7 @@ export default function QuotationsPage() {
     if (!quoteToDelete) return;
     const updated = quotations.filter((q) => q.id !== quoteToDelete.id);
     saveQuotations(updated);
-    deleteQuotationInSupabase(quoteToDelete.id, quoteToDelete.quotationNumber).catch((err) => console.error(err));
+    deleteQuotationInDB(quoteToDelete.id, quoteToDelete.quotationNumber).catch((err) => console.error(err));
     success("Quotation Removed", {
       description: `Quotation ${quoteToDelete.quotationNumber} was permanently deleted.`,
     });
@@ -908,7 +908,7 @@ export default function QuotationsPage() {
     };
     const updated = quotations.map((q) => (q.id === archiveModalQuote.id ? updatedQuote : q));
     saveQuotations(updated);
-    updateQuotationInSupabase(updatedQuote).catch((err) => console.error(err));
+    updateQuotationInDB(updatedQuote).catch((err) => console.error(err));
     success("Quotation Archived", {
       description: `Proposal ${archiveModalQuote.quotationNumber} archived. Historical accounting and audit links preserved.`,
     });
@@ -1119,10 +1119,10 @@ export default function QuotationsPage() {
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as CommercialCurrency)}
                       options={[
+                        { value: "PKR", label: "PKR (Rs) — Pakistani Rupee" },
                         { value: "USD", label: "USD ($) — US Dollar" },
                         { value: "EUR", label: "EUR (€) — Euro" },
                         { value: "GBP", label: "GBP (£) — British Pound" },
-                        { value: "PKR", label: "PKR (₨) — Pakistani Rupee" },
                         { value: "AED", label: "AED (AED) — UAE Dirham" },
                       ]}
                     />
@@ -1256,7 +1256,7 @@ export default function QuotationsPage() {
                         setUnitPrice(e.target.value);
                         if (formErrors.unitPrice) setFormErrors((prev) => ({ ...prev, unitPrice: "" }));
                       }}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="e.g. 21.09"
                       error={!!formErrors.unitPrice}
                     />
@@ -1269,7 +1269,7 @@ export default function QuotationsPage() {
                       min="0"
                       value={discount}
                       onChange={(e) => setDiscount(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
@@ -1281,7 +1281,7 @@ export default function QuotationsPage() {
                       min="0"
                       value={freightCharges}
                       onChange={(e) => setFreightCharges(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
@@ -1293,35 +1293,35 @@ export default function QuotationsPage() {
                       min="0"
                       value={tax}
                       onChange={(e) => setTax(e.target.value)}
-                      prefix={CURRENCY_SYMBOLS[currency] || "$"}
+                      prefix={CURRENCY_SYMBOLS[currency] || "Rs "}
                       placeholder="0.00"
                     />
                   </FormField>
 
                   {/* Real-time Commercial Total Display */}
-                  <div className="col-span-2 p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="col-span-full sm:col-span-2 w-full p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Subtotal:</span>
                       <p className="text-sm font-bold text-slate-900 mt-0.5">
-                        {CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Discount:</span>
                       <p className="text-sm font-bold text-slate-700 mt-0.5">
-                        -{CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        -{CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.discount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-medium text-slate-500">Charges & Tax:</span>
                       <p className="text-sm font-bold text-slate-700 mt-0.5">
-                        +{CURRENCY_SYMBOLS[currency] || "$"}{(calculatedPricing.freightCharges + calculatedPricing.tax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        +{CURRENCY_SYMBOLS[currency] || "Rs "}{(calculatedPricing.freightCharges + calculatedPricing.tax).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
                       <span className="text-[11px] font-bold text-blue-700 uppercase">Grand Quotation Total:</span>
                       <p className="text-base font-extrabold text-blue-700 mt-0.5">
-                        {CURRENCY_SYMBOLS[currency] || "$"}{calculatedPricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {CURRENCY_SYMBOLS[currency] || "Rs "}{calculatedPricing.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1352,8 +1352,8 @@ export default function QuotationsPage() {
                       onChange={(e) => setIncoterms(e.target.value)}
                       options={[
                         { value: "", label: "-- Select Incoterms (Optional) --" },
-                        { value: "FOB Sialkot", label: "FOB Sialkot / Lahore" },
-                        { value: "FOB Karachi Port", label: "FOB Karachi Port" },
+                        { value: "FOB Sialkot", label: "FOB Sialkot Dry Port (SDPT)" },
+                        { value: "FOB Sialkot Dry Port", label: "FOB Sialkot Dry Port / Sambrial" },
                         { value: "CIF London", label: "CIF Destination Port" },
                         { value: "CIF Gothenburg", label: "CIF Gothenburg" },
                         { value: "DDP Warehouse", label: "DDP Buyer Warehouse" },
@@ -2015,7 +2015,7 @@ export default function QuotationsPage() {
               />
               <StatCard
                 label="Total Quoted Value"
-                value={`$${(totalQuotedValueSum / 1000).toFixed(1)}k`}
+                value={`Rs ${(totalQuotedValueSum / 1000).toFixed(1)}k`}
                 sub="Active proposal pipeline"
                 icon={<Calculator className="h-5 w-5" />}
                 iconColor="bg-purple-50 text-purple-600"
@@ -2086,10 +2086,10 @@ export default function QuotationsPage() {
                     className="px-2.5 py-2 text-xs rounded-lg border border-[var(--color-erp-border)] bg-[var(--color-erp-surface)] text-[var(--color-erp-text-primary)] focus:outline-none cursor-pointer"
                   >
                     <option value="all">All Currencies</option>
+                    <option value="PKR">PKR (Rs)</option>
                     <option value="USD">USD ($)</option>
                     <option value="EUR">EUR (€)</option>
                     <option value="GBP">GBP (£)</option>
-                    <option value="PKR">PKR (₨)</option>
                     <option value="AED">AED (AED)</option>
                   </select>
 

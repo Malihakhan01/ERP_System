@@ -4,8 +4,8 @@
 import type { ClientRecord } from "../clients-engine";
 import { CLIENT_STORAGE_KEY, INITIAL_CLIENTS } from "../clients-engine";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -26,7 +26,7 @@ const createClient = (): any => ({
   },
 });
 
-export async function getClientsFromSupabase(): Promise<ClientRecord[]> {
+export async function getClientsFromDB(): Promise<ClientRecord[]> {
   try {
     const res = await fetch("/api/clients");
     const json = await res.json();
@@ -49,7 +49,7 @@ export async function getClientsFromSupabase(): Promise<ClientRecord[]> {
   return INITIAL_CLIENTS;
 }
 
-export async function createClientInSupabase(client: ClientRecord): Promise<ClientRecord> {
+export async function createClientInDB(client: ClientRecord): Promise<ClientRecord> {
   try {
     const res = await fetch("/api/clients", {
       method: "POST",
@@ -76,7 +76,7 @@ export async function createClientInSupabase(client: ClientRecord): Promise<Clie
   return client;
 }
 
-export async function updateClientInSupabase(client: ClientRecord): Promise<ClientRecord> {
+export async function updateClientInDB(client: ClientRecord): Promise<ClientRecord> {
   try {
     await fetch(`/api/clients/${client.id}`, {
       method: "PUT",
@@ -99,7 +99,7 @@ export async function updateClientInSupabase(client: ClientRecord): Promise<Clie
   return client;
 }
 
-export async function deleteClientInSupabase(id: string, clientId?: string): Promise<boolean> {
+export async function deleteClientInDB(id: string, clientId?: string): Promise<boolean> {
   try {
     await fetch(`/api/clients/${id}`, {
       method: "DELETE",
@@ -120,7 +120,7 @@ export async function deleteClientInSupabase(id: string, clientId?: string): Pro
   return true;
 }
 
-export async function archiveClientInSupabase(id: string): Promise<boolean> {
+export async function archiveClientInDB(id: string): Promise<boolean> {
   try {
     await fetch(`/api/clients/${id}`, {
       method: "PUT",

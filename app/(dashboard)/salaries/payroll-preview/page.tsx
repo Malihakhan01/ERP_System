@@ -41,11 +41,11 @@ import {
   deduplicateAndFixAdvances,
 } from "@/lib/advances-engine";
 import {
-  getPayrollRunsFromSupabase,
-  createPayrollRunInSupabase,
+  getPayrollRunsFromDB,
+  createPayrollRunInDB,
 } from "@/lib/services/payroll-service";
-import { getEmployeesFromSupabase, updateEmployeeInSupabase } from "@/lib/services/employees-service";
-import { getAdvancesFromSupabase, updateAdvanceInSupabase } from "@/lib/services/advances-service";
+import { getEmployeesFromDB, updateEmployeeInDB } from "@/lib/services/employees-service";
+import { getAdvancesFromDB, updateAdvanceInDB } from "@/lib/services/advances-service";
 
 export default function PayrollPreviewPage() {
   const router = useRouter();
@@ -96,11 +96,11 @@ export default function PayrollPreviewPage() {
       console.error("Local storage error:", e);
     }
 
-    // 2. Supabase DB Fetch
+    // 2. Database DB Fetch
     Promise.all([
-      getEmployeesFromSupabase().catch(() => []),
-      getAdvancesFromSupabase().catch(() => []),
-      getPayrollRunsFromSupabase().catch(() => []),
+      getEmployeesFromDB().catch(() => []),
+      getAdvancesFromDB().catch(() => []),
+      getPayrollRunsFromDB().catch(() => []),
     ])
       .then(([dbEmps, dbAdvs, dbRuns]) => {
         if (dbEmps && dbEmps.length > 0) setEmployees(dbEmps);
@@ -178,7 +178,7 @@ export default function PayrollPreviewPage() {
             status: newRemaining <= 0 ? "Completed" : "Recovering",
             updatedAt: new Date().toISOString(),
           };
-          updateAdvanceInSupabase(updatedAdv).catch(console.error);
+          updateAdvanceInDB(updatedAdv).catch(console.error);
           return updatedAdv;
         }
         return adv;
@@ -209,7 +209,7 @@ export default function PayrollPreviewPage() {
               },
             ],
           };
-          updateEmployeeInSupabase(updatedEmp).catch(console.error);
+          updateEmployeeInDB(updatedEmp).catch(console.error);
           return updatedEmp;
         }
         return emp;
@@ -225,8 +225,8 @@ export default function PayrollPreviewPage() {
         console.error("Local storage error:", e);
       }
 
-      // 5. Persist Supabase Payroll Run
-      await createPayrollRunInSupabase(previewRun).catch(console.error);
+      // 5. Persist Database Payroll Run
+      await createPayrollRunInDB(previewRun).catch(console.error);
 
       toast({
         type: "success",

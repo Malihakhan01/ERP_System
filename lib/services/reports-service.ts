@@ -1,6 +1,6 @@
 // lib/services/reports-service.ts
 // MySQL Database Service Layer for FactoryOS Phase 3.1 Reports & Analytics
-// Authoritative source of truth: PostgreSQL tables in Supabase.
+// Authoritative source of truth: PostgreSQL tables in Database.
 // Zero mock/demo datasets. Zero fake calculations.
 
 import {
@@ -25,8 +25,8 @@ import {
   categorizeInvoiceAging,
 } from "../reports-engine";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -59,15 +59,15 @@ export interface ReportingFilterOptionsData {
 // -----------------------------------------------------------------------------
 // 1. Production Performance Report
 // -----------------------------------------------------------------------------
-export async function getProductionReportFromSupabase(
+export async function getProductionReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<ProductionReportRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  let query = supabase
+  const database = createClient();
+  let query = database
     .from("production_jobs")
     .select(`
       id,
@@ -113,7 +113,7 @@ export async function getProductionReportFromSupabase(
 
   const { data, error } = await query;
   if (error) {
-    console.error("Error fetching production report from Supabase:", error);
+    console.error("Error fetching production report from Database:", error);
     return [];
   }
 
@@ -153,17 +153,17 @@ export async function getProductionReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 2. Material Consumption Report
 // -----------------------------------------------------------------------------
-export async function getMaterialConsumptionReportFromSupabase(
+export async function getMaterialConsumptionReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<MaterialConsumptionRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const [matsRes, issuesRes] = await Promise.all([
-    supabase.from("raw_materials").select("id, code, name, category, unit, unit_cost"),
-    supabase.from("production_material_issues").select("raw_material_id, issued_quantity, returned_quantity, unit_cost, created_at"),
+    database.from("raw_materials").select("id, code, name, category, unit, unit_cost"),
+    database.from("production_material_issues").select("raw_material_id, issued_quantity, returned_quantity, unit_cost, created_at"),
   ]);
 
   if (matsRes.error) {
@@ -220,13 +220,13 @@ export async function getMaterialConsumptionReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 3. Inventory Stock Valuation Report
 // -----------------------------------------------------------------------------
-export async function getInventoryReportFromSupabase(): Promise<InventoryReportRow[]> {
-  if (!isSupabaseConfigured()) {
+export async function getInventoryReportFromDB(): Promise<InventoryReportRow[]> {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("inventory_items")
     .select(`
       id,
@@ -294,15 +294,15 @@ export async function getInventoryReportFromSupabase(): Promise<InventoryReportR
 // -----------------------------------------------------------------------------
 // 4. Purchase Orders Report
 // -----------------------------------------------------------------------------
-export async function getPurchaseReportFromSupabase(
+export async function getPurchaseReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<PurchaseReportRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  let query = supabase
+  const database = createClient();
+  let query = database
     .from("purchase_orders")
     .select(`
       id,
@@ -358,16 +358,16 @@ export async function getPurchaseReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 5. Labor Cost & Piece-Rate Report
 // -----------------------------------------------------------------------------
-export async function getLaborCostReportFromSupabase(): Promise<LaborCostReportRow[]> {
-  if (!isSupabaseConfigured()) {
+export async function getLaborCostReportFromDB(): Promise<LaborCostReportRow[]> {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const [empRes, logsRes, attRes] = await Promise.all([
-    supabase.from("employees").select("id, employee_number, full_name, department, salary_type, monthly_salary, daily_rate, piece_rate"),
-    supabase.from("operator_production_logs").select("employee_id, pieces_completed, rate_per_piece, total_earnings"),
-    supabase.from("attendance_records").select("employee_id, status, overtime_hours"),
+    database.from("employees").select("id, employee_number, full_name, department, salary_type, monthly_salary, daily_rate, piece_rate"),
+    database.from("operator_production_logs").select("employee_id, pieces_completed, rate_per_piece, total_earnings"),
+    database.from("attendance_records").select("employee_id, status, overtime_hours"),
   ]);
 
   if (empRes.error) {
@@ -441,16 +441,16 @@ export async function getLaborCostReportFromSupabase(): Promise<LaborCostReportR
 // -----------------------------------------------------------------------------
 // 6. Production Line Efficiency Report
 // -----------------------------------------------------------------------------
-export async function getProductionEfficiencyReportFromSupabase(): Promise<LineEfficiencyReportRow[]> {
-  if (!isSupabaseConfigured()) {
+export async function getProductionEfficiencyReportFromDB(): Promise<LineEfficiencyReportRow[]> {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const [linesRes, allocRes, logsRes] = await Promise.all([
-    supabase.from("production_lines").select("id, line_code, line_name, target_daily_output, status"),
-    supabase.from("sewing_line_allocations").select("line_code, production_job_id, allocated_operators, target_daily_output, status"),
-    supabase.from("operator_production_logs").select("line_code, pieces_completed, rejection_count, rework_count"),
+    database.from("production_lines").select("id, line_code, line_name, target_daily_output, status"),
+    database.from("sewing_line_allocations").select("line_code, production_job_id, allocated_operators, target_daily_output, status"),
+    database.from("operator_production_logs").select("line_code, pieces_completed, rejection_count, rework_count"),
   ]);
 
   if (linesRes.error) {
@@ -506,15 +506,15 @@ export async function getProductionEfficiencyReportFromSupabase(): Promise<LineE
 // -----------------------------------------------------------------------------
 // 7. Order Profitability Report
 // -----------------------------------------------------------------------------
-export async function getOrderProfitabilityReportFromSupabase(
+export async function getOrderProfitabilityReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<OrderProfitabilityReportRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  let query = supabase
+  const database = createClient();
+  let query = database
     .from("orders")
     .select(`
       id,
@@ -593,7 +593,7 @@ export async function getOrderProfitabilityReportFromSupabase(
       invoicedAmount: invTotal,
       paidAmount: paid,
       outstandingBalance: outstanding,
-      currency: order.currency || "USD",
+      currency: order.currency || "PKR",
       status: order.status || "active",
     };
   });
@@ -602,16 +602,16 @@ export async function getOrderProfitabilityReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 8. Client Receivable Report
 // -----------------------------------------------------------------------------
-export async function getClientReceivableReportFromSupabase(): Promise<ClientReceivableReportRow[]> {
-  if (!isSupabaseConfigured()) {
+export async function getClientReceivableReportFromDB(): Promise<ClientReceivableReportRow[]> {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
+  const database = createClient();
   const [clientsRes, invoicesRes, ordersRes] = await Promise.all([
-    supabase.from("clients").select("id, name, country, currency"),
-    supabase.from("invoices").select("client_id, grand_total, paid_amount, balance_due, payment_status, due_date"),
-    supabase.from("orders").select("client_id, status"),
+    database.from("clients").select("id, name, country, currency"),
+    database.from("invoices").select("client_id, grand_total, paid_amount, balance_due, payment_status, due_date"),
+    database.from("orders").select("client_id, status"),
   ]);
 
   if (clientsRes.error) {
@@ -671,7 +671,7 @@ export async function getClientReceivableReportFromSupabase(): Promise<ClientRec
       totalOutstanding: outstanding,
       overdueBalance: invData.overdue,
       collectionRatePercent: collectionRate,
-      currency: c.currency || "USD",
+      currency: c.currency || "PKR",
     };
   });
 }
@@ -679,15 +679,15 @@ export async function getClientReceivableReportFromSupabase(): Promise<ClientRec
 // -----------------------------------------------------------------------------
 // 9. Invoice Aging Report
 // -----------------------------------------------------------------------------
-export async function getInvoiceAgingReportFromSupabase(
+export async function getInvoiceAgingReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<InvoiceAgingReportRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  let query = supabase
+  const database = createClient();
+  let query = database
     .from("invoices")
     .select(`
       id,
@@ -742,7 +742,7 @@ export async function getInvoiceAgingReportFromSupabase(
       daysOverdue: aging.daysOverdue,
       agingBucket: aging.agingBucket,
       status: inv.payment_status || "pending",
-      currency: inv.currency || "USD",
+      currency: inv.currency || "PKR",
     };
   });
 }
@@ -750,15 +750,15 @@ export async function getInvoiceAgingReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 10. Dispatch & Export Logistics Report
 // -----------------------------------------------------------------------------
-export async function getDispatchReportFromSupabase(
+export async function getDispatchReportFromDB(
   filters?: ReportFilterOptions
 ): Promise<DispatchReportRow[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  let query = supabase
+  const database = createClient();
+  let query = database
     .from("dispatch_records")
     .select(`
       id,
@@ -820,13 +820,13 @@ export async function getDispatchReportFromSupabase(
 // -----------------------------------------------------------------------------
 // 11. Tracking Performance Report
 // -----------------------------------------------------------------------------
-export async function getTrackingPerformanceReportFromSupabase(): Promise<TrackingPerformanceRow[]> {
-  if (!isSupabaseConfigured()) {
+export async function getTrackingPerformanceReportFromDB(): Promise<TrackingPerformanceRow[]> {
+  if (!isDatabaseConfigured()) {
     return [];
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const database = createClient();
+  const { data, error } = await database
     .from("tracking_shipments")
     .select(`
       id,
@@ -870,7 +870,7 @@ export async function getTrackingPerformanceReportFromSupabase(): Promise<Tracki
 // -----------------------------------------------------------------------------
 // 12. Executive Financial Summary
 // -----------------------------------------------------------------------------
-export async function getExecutiveFinancialSummaryFromSupabase(
+export async function getExecutiveFinancialSummaryFromDB(
   filters?: ReportFilterOptions
 ): Promise<ExecutiveFinancialSummaryData> {
   const defaultSummary: ExecutiveFinancialSummaryData = {
@@ -890,18 +890,18 @@ export async function getExecutiveFinancialSummaryFromSupabase(
     averageFloorEfficiency: 0,
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return defaultSummary;
   }
 
   try {
     const [orders, invoices, matIssues, opLogs, dispatches, efficiency] = await Promise.all([
-      getOrderProfitabilityReportFromSupabase(filters),
-      getInvoiceAgingReportFromSupabase(filters),
-      getMaterialConsumptionReportFromSupabase(filters),
-      getLaborCostReportFromSupabase(),
-      getDispatchReportFromSupabase(filters),
-      getProductionEfficiencyReportFromSupabase(),
+      getOrderProfitabilityReportFromDB(filters),
+      getInvoiceAgingReportFromDB(filters),
+      getMaterialConsumptionReportFromDB(filters),
+      getLaborCostReportFromDB(),
+      getDispatchReportFromDB(filters),
+      getProductionEfficiencyReportFromDB(),
     ]);
 
     let totalRevenue = 0;
@@ -984,7 +984,7 @@ export async function getExecutiveFinancialSummaryFromSupabase(
 // -----------------------------------------------------------------------------
 // 13. Filter Options Loader
 // -----------------------------------------------------------------------------
-export async function getReportingFilterOptionsFromSupabase(): Promise<ReportingFilterOptionsData> {
+export async function getReportingFilterOptionsFromDB(): Promise<ReportingFilterOptionsData> {
   const defaultOptions: ReportingFilterOptionsData = {
     clients: [],
     products: [],
@@ -993,17 +993,17 @@ export async function getReportingFilterOptionsFromSupabase(): Promise<Reporting
     suppliers: [],
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return defaultOptions;
   }
 
-  const supabase = createClient();
+  const database = createClient();
   try {
     const [cRes, pRes, jRes, lRes] = await Promise.all([
-      supabase.from("clients").select("id, name").order("name"),
-      supabase.from("products").select("id, name").order("name"),
-      supabase.from("production_jobs").select("id, job_number").order("job_number"),
-      supabase.from("production_lines").select("line_code, line_name").order("line_code"),
+      database.from("clients").select("id, name").order("name"),
+      database.from("products").select("id, name").order("name"),
+      database.from("production_jobs").select("id, job_number").order("job_number"),
+      database.from("production_lines").select("line_code, line_name").order("line_code"),
     ]);
 
     return {

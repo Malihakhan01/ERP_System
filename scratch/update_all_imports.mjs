@@ -45,7 +45,7 @@ function processDirectory(dirPath) {
       let modified = false;
 
       for (const [sBase, dBase] of Object.entries(fileMapping)) {
-        const regexStr = `@/lib/supabase/${sBase}`;
+        const regexStr = `@/lib/services/${sBase}`;
         if (content.includes(regexStr)) {
           content = content.replaceAll(regexStr, `@/lib/services/${dBase}`);
           modified = true;

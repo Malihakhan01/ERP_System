@@ -24,7 +24,7 @@ export interface PurchaseOrder {
 
 export const PURCHASES_STORAGE_KEY = "factoryos_purchase_orders";
 
-export async function getPurchasesFromSupabase(): Promise<PurchaseOrder[]> {
+export async function getPurchasesFromDB(): Promise<PurchaseOrder[]> {
   try {
     const res = await fetch("/api/purchases");
     const json = await res.json();
@@ -47,7 +47,7 @@ export async function getPurchasesFromSupabase(): Promise<PurchaseOrder[]> {
   return [];
 }
 
-export async function createPurchaseInSupabase(po: PurchaseOrder): Promise<PurchaseOrder> {
+export async function createPurchaseInDB(po: PurchaseOrder): Promise<PurchaseOrder> {
   try {
     const res = await fetch("/api/purchases", {
       method: "POST",
@@ -74,7 +74,7 @@ export async function createPurchaseInSupabase(po: PurchaseOrder): Promise<Purch
   return po;
 }
 
-export async function updatePurchaseInSupabase(po: PurchaseOrder): Promise<PurchaseOrder> {
+export async function updatePurchaseInDB(po: PurchaseOrder): Promise<PurchaseOrder> {
   try {
     await fetch(`/api/purchases/${po.id}`, {
       method: "PUT",
@@ -97,7 +97,7 @@ export async function updatePurchaseInSupabase(po: PurchaseOrder): Promise<Purch
   return po;
 }
 
-export async function deletePurchaseInSupabase(id: string, poNumber?: string): Promise<boolean> {
+export async function deletePurchaseInDB(id: string, poNumber?: string): Promise<boolean> {
   try {
     await fetch(`/api/purchases/${id}`, {
       method: "DELETE",

@@ -60,7 +60,7 @@ export default function CostingPage() {
   const [selectedOrderId, setSelectedOrderId] = React.useState<string>("");
   const [styleCode, setStyleCode] = React.useState("HD-380");
   const [batchQuantity, setBatchQuantity] = React.useState(500);
-  const [currency, setCurrency] = React.useState("USD");
+  const [currency, setCurrency] = React.useState("PKR");
   const [fabricConsumptionKg, setFabricConsumptionKg] = React.useState(0.45);
   const [fabricRatePerKg, setFabricRatePerKg] = React.useState(7.5);
   const [trimsCostPerPc, setTrimsCostPerPc] = React.useState(1.8);
@@ -157,7 +157,7 @@ export default function CostingPage() {
       const json = await res.json();
       if (json.success) {
         success("Cost Estimate Created", {
-          description: `Estimate for ${styleCode} saved into MySQL with FOB price $${liveFobPrice}/pc.`,
+          description: `Estimate for ${styleCode} saved into MySQL with FOB price Rs ${liveFobPrice}/pc.`,
         });
         setViewMode("list");
         loadData();
@@ -243,6 +243,7 @@ export default function CostingPage() {
                 <FormSection
                   title="1. Style & Order Batch"
                   description="Specify garment style reference, linked sales contract, and production batch size"
+                  gridClassName="block space-y-4 w-full"
                 >
                   <div className="mb-4">
                     <FormField label="Link to Sales Order (Optional)">
@@ -278,6 +279,7 @@ export default function CostingPage() {
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value)}
                       >
+                        <option value="PKR">PKR (Rs)</option>
                         <option value="USD">USD ($)</option>
                         <option value="EUR">EUR (€)</option>
                         <option value="GBP">GBP (£)</option>
@@ -291,6 +293,7 @@ export default function CostingPage() {
                 <FormSection
                   title="2. Fabric Yield & Trims BOM"
                   description="Raw material consumption formulas"
+                  gridClassName="block space-y-4 w-full"
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <FormField label="Fabric Consumption (kg/pc)" required>
@@ -301,7 +304,7 @@ export default function CostingPage() {
                         onChange={(e) => setFabricConsumptionKg(parseFloat(e.target.value) || 0)}
                       />
                     </FormField>
-                    <FormField label="Fabric Rate ($/kg)" required>
+                    <FormField label="Fabric Rate (Rs/kg)" required>
                       <Input
                         type="number"
                         step="0.1"
@@ -309,7 +312,7 @@ export default function CostingPage() {
                         onChange={(e) => setFabricRatePerKg(parseFloat(e.target.value) || 0)}
                       />
                     </FormField>
-                    <FormField label="Trims & Accessories ($/pc)" required>
+                    <FormField label="Trims & Accessories (Rs/pc)" required>
                       <Input
                         type="number"
                         step="0.05"
@@ -325,6 +328,7 @@ export default function CostingPage() {
                 <FormSection
                   title="3. Labor SAM & Factory Overheads"
                   description="Standard Allowed Minute (SAM) labor rates and factory operational costs"
+                  gridClassName="block space-y-4 w-full"
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                     <FormField label="Sewing SAM (Minutes)" required>
@@ -335,7 +339,7 @@ export default function CostingPage() {
                         onChange={(e) => setSamMinutes(parseFloat(e.target.value) || 0)}
                       />
                     </FormField>
-                    <FormField label="Labor Rate ($/min)" required>
+                    <FormField label="Labor Rate (Rs/min)" required>
                       <Input
                         type="number"
                         step="0.01"
@@ -343,7 +347,7 @@ export default function CostingPage() {
                         onChange={(e) => setLaborRatePerMinute(parseFloat(e.target.value) || 0)}
                       />
                     </FormField>
-                    <FormField label="Overheads ($/pc)" required>
+                    <FormField label="Overheads (Rs/pc)" required>
                       <Input
                         type="number"
                         step="0.05"
@@ -351,7 +355,7 @@ export default function CostingPage() {
                         onChange={(e) => setOverheadCostPerPc(parseFloat(e.target.value) || 0)}
                       />
                     </FormField>
-                    <FormField label="Packaging ($/pc)" required>
+                    <FormField label="Packaging (Rs/pc)" required>
                       <Input
                         type="number"
                         step="0.05"
@@ -385,22 +389,22 @@ export default function CostingPage() {
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
                     <span className="text-slate-500">Fabric Cost / Pc</span>
-                    <span className="font-mono font-bold text-slate-900">${liveFabricCost}</span>
+                    <span className="font-mono font-bold text-slate-900">Rs {liveFabricCost}</span>
                   </div>
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
                     <span className="text-slate-500">Trims & Labels / Pc</span>
-                    <span className="font-mono font-bold text-slate-900">${trimsCostPerPc}</span>
+                    <span className="font-mono font-bold text-slate-900">Rs {trimsCostPerPc}</span>
                   </div>
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
                     <span className="text-slate-500">Labor (SAM) Cost / Pc</span>
-                    <span className="font-mono font-bold text-slate-900">${liveLaborCost}</span>
+                    <span className="font-mono font-bold text-slate-900">Rs {liveLaborCost}</span>
                   </div>
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
                     <span className="text-slate-500">Factory Cost / Pc</span>
-                    <span className="font-mono font-bold text-slate-900">${liveFactoryCost}</span>
+                    <span className="font-mono font-bold text-slate-900">Rs {liveFactoryCost}</span>
                   </div>
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
@@ -410,13 +414,13 @@ export default function CostingPage() {
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5 bg-blue-50/50 p-2 rounded-lg">
                     <span className="font-bold text-blue-900">Quoted FOB Price / Pc</span>
-                    <span className="font-mono font-bold text-blue-700 text-lg">${liveFobPrice}</span>
+                    <span className="font-mono font-bold text-blue-700 text-lg">Rs {liveFobPrice}</span>
                   </div>
 
                   <div className="flex justify-between border-b border-slate-100 pb-2.5">
                     <span className="text-slate-500">Total Contract Value</span>
                     <span className="font-mono font-bold text-slate-900">
-                      ${liveTotalContract.toLocaleString()}
+                      Rs {liveTotalContract.toLocaleString()}
                     </span>
                   </div>
 
@@ -588,11 +592,11 @@ export default function CostingPage() {
                       <td className="px-4 py-3 font-mono font-bold text-blue-600">{cst.estimateNumber}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-900">{cst.styleCode}</td>
                       <td className="px-4 py-3 text-slate-800">{(cst.batchQuantity || 0).toLocaleString()} Pcs</td>
-                      <td className="px-4 py-3 font-mono font-semibold text-slate-900">${cst.factoryCostPerPc}</td>
+                      <td className="px-4 py-3 font-mono font-semibold text-slate-900">Rs {cst.factoryCostPerPc}</td>
                       <td className="px-4 py-3 font-mono font-bold text-emerald-600">{cst.netMarginPct}%</td>
-                      <td className="px-4 py-3 font-mono font-bold text-blue-700 text-base">${cst.fobPricePerPc}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-blue-700 text-base">Rs {cst.fobPricePerPc}</td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                        ${(cst.totalContractValue || 0).toLocaleString()}
+                        Rs {(cst.totalContractValue || 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={cst.status === "approved" ? "success" : "default"}>

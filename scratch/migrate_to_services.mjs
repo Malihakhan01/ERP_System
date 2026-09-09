@@ -2,14 +2,14 @@ import fs from "fs";
 import path from "path";
 
 const rootDir = process.cwd();
-const supabaseDir = path.join(rootDir, "lib", "supabase");
+const dbDir = path.join(rootDir, "lib", "database");
 const servicesDir = path.join(rootDir, "lib", "services");
 
 if (!fs.existsSync(servicesDir)) {
   fs.mkdirSync(servicesDir, { recursive: true });
 }
 
-// Mapping of supabase file names to services file names
+// Mapping of database file names to services file names
 const fileMapping = {
   "advances-db.ts": "advances-service.ts",
   "ai-mockup-db.ts": "ai-mockup-service.ts",
@@ -37,8 +37,8 @@ const fileMapping = {
 
 console.log("1. Copying and transforming files into lib/services/...");
 
-for (const [supabaseFile, serviceFile] of Object.entries(fileMapping)) {
-  const srcPath = path.join(supabaseDir, supabaseFile);
+for (const [dbFile, serviceFile] of Object.entries(fileMapping)) {
+  const srcPath = path.join(dbDir, dbFile);
   const destPath = path.join(servicesDir, serviceFile);
 
   if (!fs.existsSync(srcPath)) continue;
@@ -52,13 +52,13 @@ for (const [supabaseFile, serviceFile] of Object.entries(fileMapping)) {
     
     // Replace `./advances-db` with `./advances-service`
     content = content.replaceAll(`./${sBase}`, `./${dBase}`);
-    // Replace `@/lib/supabase/advances-db` with `@/lib/services/advances-service`
-    content = content.replaceAll(`@/lib/supabase/${sBase}`, `@/lib/services/${dBase}`);
+    // Replace `@/lib/services/advances-db` with `@/lib/services/advances-service`
+    content = content.replaceAll(`@/lib/services/${sBase}`, `@/lib/services/${dBase}`);
   }
 
   // Update header comment if present
   content = content.replace(
-    /\/\/ lib\/supabase\/[a-zA-Z0-9_-]+\.ts/,
+    /\/\/ lib\/database\/[a-zA-Z0-9_-]+\.ts/,
     `// lib/services/${serviceFile}`
   );
 
@@ -80,10 +80,10 @@ for (const serviceFile of Object.values(fileMapping)) {
 fs.writeFileSync(path.join(servicesDir, "index.ts"), indexContent, "utf-8");
 console.log("Created: lib/services/index.ts");
 
-// 3. Create compatibility re-export wrappers in lib/supabase/
-console.log("3. Creating backward-compatibility wrappers in lib/supabase/...");
-for (const [supabaseFile, serviceFile] of Object.entries(fileMapping)) {
-  const targetPath = path.join(supabaseDir, supabaseFile);
+// 3. Create compatibility re-export wrappers in lib/services/
+console.log("3. Creating backward-compatibility wrappers in lib/services/...");
+for (const [dbFile, serviceFile] of Object.entries(fileMapping)) {
+  const targetPath = path.join(dbDir, dbFile);
   const serviceBase = serviceFile.replace(/\.ts$/, "");
   const wrapperContent = `/**
  * Backward compatibility re-export wrapper.
@@ -92,7 +92,7 @@ for (const [supabaseFile, serviceFile] of Object.entries(fileMapping)) {
 export * from "../services/${serviceBase}";
 `;
   fs.writeFileSync(targetPath, wrapperContent, "utf-8");
-  console.log(`Updated wrapper: lib/supabase/${supabaseFile}`);
+  console.log(`Updated wrapper: lib/services/${dbFile}`);
 }
 
 console.log("Migration complete!");

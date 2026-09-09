@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { TopNav } from "@/components/layout/TopNav";
 import { EmployeeForm } from "@/components/employees/EmployeeForm";
 import { EmployeeRecord, EMPLOYEE_STORAGE_KEY } from "@/lib/employees-engine";
-import { getEmployeesFromSupabase } from "@/lib/services/employees-service";
+import { getEmployeesFromDB } from "@/lib/services/employees-service";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -47,8 +47,8 @@ export default function EditEmployeePage() {
       setIsLoading(false);
     }
 
-    // 2. Fetch from Supabase
-    getEmployeesFromSupabase()
+    // 2. Fetch from Database
+    getEmployeesFromDB()
       .then((emps) => {
         if (emps && emps.length > 0) {
           setAllEmployees(emps);
@@ -66,7 +66,7 @@ export default function EditEmployeePage() {
         }
       })
       .catch((err) => {
-        console.error("Supabase fetch error:", err);
+        console.error("Database fetch error:", err);
         if (!found) setNotFound(true);
       })
       .finally(() => {

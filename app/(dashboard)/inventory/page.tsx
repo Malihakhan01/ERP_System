@@ -31,11 +31,11 @@ import {
 } from "lucide-react";
 
 import {
-  getInventoryFromSupabase,
-  getStockMovementsFromSupabase,
-  createInventoryItemInSupabase,
-  updateInventoryItemInSupabase,
-  recordStockMovementInSupabase,
+  getInventoryFromDB,
+  getStockMovementsFromDB,
+  createInventoryItemInDB,
+  updateInventoryItemInDB,
+  recordStockMovementInDB,
   InventoryItem,
   StockMovementRecord,
   INVENTORY_STORAGE_KEY as STORAGE_KEY,
@@ -131,8 +131,8 @@ export default function InventoryPage() {
     setLoadingInventory(true);
     try {
       const [invData, movData] = await Promise.all([
-        getInventoryFromSupabase().catch(() => []),
-        getStockMovementsFromSupabase().catch(() => []),
+        getInventoryFromDB().catch(() => []),
+        getStockMovementsFromDB().catch(() => []),
       ]);
 
       if (invData && invData.length > 0) {
@@ -392,11 +392,11 @@ export default function InventoryPage() {
     saveInventoryList(updatedInventory, updatedMovements);
 
     if (existingIndex >= 0) {
-      updateInventoryItemInSupabase(updatedInventory[existingIndex]).catch((err) => console.error(err));
+      updateInventoryItemInDB(updatedInventory[existingIndex]).catch((err) => console.error(err));
     } else {
-      createInventoryItemInSupabase(updatedInventory[0]).catch((err) => console.error(err));
+      createInventoryItemInDB(updatedInventory[0]).catch((err) => console.error(err));
     }
-    recordStockMovementInSupabase(newMovement).catch((err) => console.error(err));
+    recordStockMovementInDB(newMovement).catch((err) => console.error(err));
 
     success("Stock movement logged", {
       description: `${name.trim()} (${sku.trim().toUpperCase()}) stock updated successfully.`,
@@ -410,7 +410,7 @@ export default function InventoryPage() {
     if (!itemToDelete) return;
     const updated = inventoryItems.filter((i) => i.id !== itemToDelete.id);
     saveInventoryList(updated);
-    updateInventoryItemInSupabase({ ...itemToDelete, isArchived: true }).catch((err) => console.error(err));
+    updateInventoryItemInDB({ ...itemToDelete, isArchived: true }).catch((err) => console.error(err));
     success("Inventory record removed", {
       description: `${itemToDelete.name} was removed from warehouse inventory.`,
     });

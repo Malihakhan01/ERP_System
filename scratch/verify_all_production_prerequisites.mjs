@@ -1,11 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 import fs from "fs";
 import path from "path";
 
 // Load .env.local
 const envPath = path.resolve(".env.local");
-let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-let supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let dbUrl = process.env.NEXT_PUBLIC_DB_URL;
+let dbAnonKey = process.env.NEXT_PUBLIC_DB_ANON_KEY;
 
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, "utf8");
@@ -15,36 +15,36 @@ if (fs.existsSync(envPath)) {
       const [k, ...v] = trimmed.split("=");
       if (k && v.length > 0) {
         const val = v.join("=").trim().replace(/^["'](.*)["']$/, "$1");
-        if (k.trim() === "NEXT_PUBLIC_SUPABASE_URL") supabaseUrl = val;
-        if (k.trim() === "NEXT_PUBLIC_SUPABASE_ANON_KEY") supabaseAnonKey = val;
+        if (k.trim() === "NEXT_PUBLIC_DB_URL") dbUrl = val;
+        if (k.trim() === "NEXT_PUBLIC_DB_ANON_KEY") dbAnonKey = val;
       }
     }
   }
 }
 
-console.log("Supabase URL Configured:", supabaseUrl);
-const isConfigured = Boolean(supabaseUrl && !supabaseUrl.includes("placeholder") && !supabaseUrl.includes("example"));
-console.log("Is Supabase Live & Configured:", isConfigured);
+console.log("Database URL Configured:", dbUrl);
+const isConfigured = Boolean(dbUrl && !dbUrl.includes("placeholder") && !dbUrl.includes("example"));
+console.log("Is Database Live & Configured:", isConfigured);
 
 async function checkPrerequisites() {
   if (!isConfigured) {
-    console.log("\n[INFO] Supabase credentials in .env.local are currently placeholder.");
+    console.log("\n[INFO] Database credentials in .env.local are currently placeholder.");
     console.log("[INFO] Checking application default seed data in code repositories...");
     return;
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const database = createClient(dbUrl, dbAnonKey);
   try {
     const [{ data: orders }, { data: products }, { data: clients }, { data: inventory }, { data: employees }, { data: jobs }] = await Promise.all([
-      supabase.from("orders").select("*"),
-      supabase.from("products").select("*"),
-      supabase.from("clients").select("*"),
-      supabase.from("inventory_items").select("*"),
-      supabase.from("employees").select("*"),
-      supabase.from("production_jobs").select("*"),
+      database.from("orders").select("*"),
+      database.from("products").select("*"),
+      database.from("clients").select("*"),
+      database.from("inventory_items").select("*"),
+      database.from("employees").select("*"),
+      database.from("production_jobs").select("*"),
     ]);
 
-    console.log("\n=== REAL SUPABASE RECORDS ===");
+    console.log("\n=== REAL DATABASE RECORDS ===");
     console.log("Orders count:", orders?.length || 0);
     const confirmedOrders = (orders || []).filter(o => o.order_status === "confirmed" || o.status === "confirmed");
     console.log("Confirmed Orders count:", confirmedOrders.length);
@@ -54,7 +54,7 @@ async function checkPrerequisites() {
     console.log("Employees count:", employees?.length || 0);
     console.log("Production Jobs count:", jobs?.length || 0);
   } catch (err) {
-    console.error("Error querying Supabase:", err);
+    console.error("Error querying Database:", err);
   }
 }
 

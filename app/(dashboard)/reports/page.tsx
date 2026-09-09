@@ -134,7 +134,7 @@ export default function ReportsPage() {
   }, []);
 
   // Main Report Data Fetcher
-  const loadReportData = React.useCallback(async () => {
+  const loadReportData = React.useCallback(async (showSuccessToast: boolean = false) => {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -178,13 +178,19 @@ export default function ReportsPage() {
       } else if (activeTab === "tracking") {
         setTrackingRows(data || []);
       }
+
+      if (showSuccessToast) {
+        success("Report Refreshed", {
+          description: "Authoritative MySQL report data successfully refreshed.",
+        });
+      }
     } catch (err: unknown) {
       console.error("Report data load error:", err);
       toastError("Failed to fetch authoritative report data from MySQL.");
     } finally {
       setLoading(false);
     }
-  }, [activeTab, dateRangeType, selectedClient, selectedStatus, toastError]);
+  }, [activeTab, dateRangeType, selectedClient, selectedStatus, success, toastError]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -301,7 +307,18 @@ export default function ReportsPage() {
   };
 
   const handlePrintPDF = () => {
+    document.body.classList.add("print-report-active");
     window.print();
+    window.addEventListener(
+      "afterprint",
+      () => {
+        document.body.classList.remove("print-report-active");
+      },
+      { once: true }
+    );
+    setTimeout(() => {
+      document.body.classList.remove("print-report-active");
+    }, 2000);
   };
 
   const resetFilters = () => {
@@ -316,10 +333,40 @@ export default function ReportsPage() {
       <TopNav title="Reports & Real-Time Analytics" />
 
       <div className="max-w-[1440px] mx-auto p-4 sm:p-6 space-y-6 pb-16 animate-in fade-in-0 duration-200">
+        {/* Printable Official Document Header (Visible ONLY during print/PDF export) */}
+        <div className="hidden print:flex flex-col border-b-2 border-slate-900 pb-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">
+                FactoryOS — Garment Manufacturing ERP
+              </h1>
+              <p className="text-sm font-bold text-slate-700 mt-0.5">
+                {activeTab === "summary" && "Executive Financial & Production Performance Summary"}
+                {activeTab === "production" && "Production Performance & Floor Output Report"}
+                {activeTab === "material" && "Material Consumption & Cost Variance Report"}
+                {activeTab === "inventory" && "Warehouse Inventory Valuation & Stock Report"}
+                {activeTab === "efficiency" && "Stitching Line Efficiency & Target Tracking"}
+                {activeTab === "profitability" && "Work Order Profitability & Margin Analysis"}
+                {activeTab === "receivables" && "Client Receivables Ledger & Aging Report"}
+                {activeTab === "aging" && "Commercial Invoice Aging & Overdue Schedule"}
+                {activeTab === "dispatch" && "Export Shipments & Cargo Logistics Report"}
+                {activeTab === "labor" && "Floor Labor Cost, Overtime & Piece Rates"}
+                {activeTab === "tracking" && "9-Gate Shipment Milestone Tracking Report"}
+              </p>
+            </div>
+            <div className="text-right text-xs text-slate-600 font-mono space-y-0.5">
+              <p className="font-bold text-slate-900">Authoritative MySQL 8 Report</p>
+              <p>Printed: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+              <p>Horizon: {dateRangeType.toUpperCase()} | Status: {selectedStatus.toUpperCase()}</p>
+              <p className="font-bold text-slate-900">Currency: PKR (Rs)</p>
+            </div>
+          </div>
+        </div>
+
         {/* ========================================================= */}
-        {/* 1. TOP HEADER & EXPORT TOOLBAR                            */}
+        {/* 1. TOP HEADER & EXPORT TOOLBAR (Screen Only)               */}
         {/* ========================================================= */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs no-print">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               Executive Reports & Production Analytics
@@ -334,7 +381,7 @@ export default function ReportsPage() {
               variant="outline"
               size="sm"
               leftIcon={<RefreshCw className={`h-3.5 w-3.5 text-blue-600 ${loading ? "animate-spin" : ""}`} />}
-              onClick={loadReportData}
+              onClick={() => loadReportData(true)}
               disabled={loading}
             >
               Refresh
@@ -360,9 +407,9 @@ export default function ReportsPage() {
         </div>
 
         {/* ========================================================= */}
-        {/* 2. REPORT CATEGORY NAVIGATION TABS                        */}
+        {/* 2. REPORT CATEGORY NAVIGATION TABS (Screen Only)           */}
         {/* ========================================================= */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-xs no-print">
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
               { id: "summary" as const, label: "Executive Summary", icon: DollarSign },
@@ -399,9 +446,9 @@ export default function ReportsPage() {
         </div>
 
         {/* ========================================================= */}
-        {/* 3. TIME PERIOD & FILTER TOOLBAR                           */}
+        {/* 3. TIME PERIOD & FILTER TOOLBAR (Screen Only)              */}
         {/* ========================================================= */}
-        <Card className="p-3.5 sm:p-4 bg-white border-slate-200/80 shadow-xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 rounded-2xl">
+        <Card className="p-3.5 sm:p-4 bg-white border-slate-200/80 shadow-xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 rounded-2xl no-print">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0 bg-slate-100/80 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
               <Calendar className="h-3.5 w-3.5 text-blue-600" />
@@ -463,17 +510,17 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
               <StatCard
                 label="Total Contract Revenue"
-                value={`$${formatNumber(summaryData.totalRevenue)}`}
+                value={`Rs ${formatNumber(summaryData.totalRevenue)}`}
                 sub={`${summaryData.activeOrdersCount} Active Work Orders`}
               />
               <StatCard
                 label="Total Commercial Invoiced"
-                value={`$${formatNumber(summaryData.totalInvoiced)}`}
-                sub={`Collected: $${formatNumber(summaryData.totalCollected)}`}
+                value={`Rs ${formatNumber(summaryData.totalInvoiced)}`}
+                sub={`Collected: Rs ${formatNumber(summaryData.totalCollected)}`}
               />
               <StatCard
                 label="Total Outstanding Balance"
-                value={`$${formatNumber(summaryData.totalOutstanding)}`}
+                value={`Rs ${formatNumber(summaryData.totalOutstanding)}`}
                 trend={{
                   value: summaryData.totalOutstanding > 0 ? "Receivable" : "Settled",
                   direction: summaryData.totalOutstanding > 0 ? "up" : "down",
@@ -481,7 +528,7 @@ export default function ReportsPage() {
               />
               <StatCard
                 label="Actual Production Cost"
-                value={`$${formatNumber(summaryData.totalActualProductionCost)}`}
+                value={`Rs ${formatNumber(summaryData.totalActualProductionCost)}`}
                 sub={`Material + Direct Labor + Overhead`}
               />
             </div>
@@ -489,7 +536,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
               <StatCard
                 label="Net Production Gross Profit"
-                value={`$${formatNumber(summaryData.totalGrossProfit)}`}
+                value={`Rs ${formatNumber(summaryData.totalGrossProfit)}`}
                 trend={{
                   value: `${summaryData.averageGrossMarginPercent}% Margin`,
                   direction: summaryData.totalGrossProfit >= 0 ? "up" : "down",
@@ -497,12 +544,12 @@ export default function ReportsPage() {
               />
               <StatCard
                 label="Material Consumption Cost"
-                value={`$${formatNumber(summaryData.totalMaterialCost)}`}
+                value={`Rs ${formatNumber(summaryData.totalMaterialCost)}`}
                 sub="Direct Warehouse Issues"
               />
               <StatCard
                 label="Direct Labor & Piece Rates"
-                value={`$${formatNumber(summaryData.totalLaborCost)}`}
+                value={`Rs ${formatNumber(summaryData.totalLaborCost)}`}
                 sub="Sewing Logs & Attendance"
               />
               <StatCard
@@ -616,7 +663,7 @@ export default function ReportsPage() {
                         <th className="py-3 px-3 text-right">Actual Consumed</th>
                         <th className="py-3 px-3 text-right">Unit Cost</th>
                         <th className="py-3 px-3 text-right">Actual Cost</th>
-                        <th className="py-3 px-3 text-right">Variance ($)</th>
+                        <th className="py-3 px-3 text-right">Variance (Rs)</th>
                         <th className="py-3 px-3 text-center">Status</th>
                       </tr>
                     </thead>
@@ -632,15 +679,15 @@ export default function ReportsPage() {
                           <td className="py-3 px-3 text-right font-bold text-slate-900">
                             {row.actualConsumptionQty > 0 ? `${row.actualConsumptionQty} ${row.unit}` : "0"}
                           </td>
-                          <td className="py-3 px-3 text-right text-slate-600">${row.unitCost.toFixed(2)}</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${row.actualCost.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right text-slate-600">Rs {row.unitCost.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {row.actualCost.toFixed(2)}</td>
                           <td className="py-3 px-3 text-right font-mono">
                             {row.varianceAmount > 0 ? (
-                              <span className="text-rose-600">+{row.varianceAmount.toFixed(2)}</span>
+                              <span className="text-rose-600">+Rs {row.varianceAmount.toFixed(2)}</span>
                             ) : row.varianceAmount < 0 ? (
-                              <span className="text-emerald-600">{row.varianceAmount.toFixed(2)}</span>
+                              <span className="text-emerald-600">Rs {row.varianceAmount.toFixed(2)}</span>
                             ) : (
-                              <span className="text-slate-500">$0.00</span>
+                              <span className="text-slate-500">Rs 0.00</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-center">
@@ -693,7 +740,7 @@ export default function ReportsPage() {
                         <th className="py-3 px-3 text-right">Available</th>
                         <th className="py-3 px-3 text-right">Reorder Level</th>
                         <th className="py-3 px-3 text-right">Unit Cost</th>
-                        <th className="py-3 px-3 text-right">Valuation ($)</th>
+                        <th className="py-3 px-3 text-right">Valuation (Rs)</th>
                         <th className="py-3 px-3 text-center">Status</th>
                       </tr>
                     </thead>
@@ -707,8 +754,8 @@ export default function ReportsPage() {
                           <td className="py-3 px-3 text-right text-slate-600">{row.allocatedStock} {row.unit}</td>
                           <td className="py-3 px-3 text-right font-bold text-emerald-600">{row.availableStock} {row.unit}</td>
                           <td className="py-3 px-3 text-right text-slate-600">{row.reorderLevel} {row.unit}</td>
-                          <td className="py-3 px-3 text-right text-slate-600">${row.unitCost.toFixed(2)}</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${row.totalValuation.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right text-slate-600">Rs {row.unitCost.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {row.totalValuation.toFixed(2)}</td>
                           <td className="py-3 px-3 text-center">
                             <Badge variant={row.reorderStatus === "adequate" ? "success" : row.reorderStatus === "reorder_needed" ? "warning" : "danger"}>
                               {row.reorderStatus === "adequate" ? "Adequate" : row.reorderStatus === "reorder_needed" ? "Reorder Needed" : "Critical Low"}
@@ -829,18 +876,18 @@ export default function ReportsPage() {
                         <tr key={row.orderId} className="hover:bg-slate-50/60 transition-colors">
                           <td className="py-3 px-3 font-bold text-slate-900">{row.orderNumber}</td>
                           <td className="py-3 px-3 text-slate-700">{row.clientName}</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${formatNumber(row.contractRevenue)}</td>
-                          <td className="py-3 px-3 text-right text-slate-600">${formatNumber(row.standardCost)}</td>
-                          <td className="py-3 px-3 text-right text-slate-600">${formatNumber(row.actualCost)}</td>
-                          <td className="py-3 px-3 text-right font-bold text-emerald-600">${formatNumber(row.grossProfit)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {formatNumber(row.contractRevenue)}</td>
+                          <td className="py-3 px-3 text-right text-slate-600">Rs {formatNumber(row.standardCost)}</td>
+                          <td className="py-3 px-3 text-right text-slate-600">Rs {formatNumber(row.actualCost)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-emerald-600">Rs {formatNumber(row.grossProfit)}</td>
                           <td className="py-3 px-3 text-center">
                             <Badge variant={row.grossMarginPercent >= 25 ? "success" : "warning"}>
                               {row.grossMarginPercent}%
                             </Badge>
                           </td>
-                          <td className="py-3 px-3 text-right text-slate-700">${formatNumber(row.invoicedAmount)}</td>
-                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">${formatNumber(row.paidAmount)}</td>
-                          <td className="py-3 px-3 text-right text-rose-600 font-bold">${formatNumber(row.outstandingBalance)}</td>
+                          <td className="py-3 px-3 text-right text-slate-700">Rs {formatNumber(row.invoicedAmount)}</td>
+                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">Rs {formatNumber(row.paidAmount)}</td>
+                          <td className="py-3 px-3 text-right text-rose-600 font-bold">Rs {formatNumber(row.outstandingBalance)}</td>
                           <td className="py-3 px-3">
                             <Badge variant="default">{row.status.toUpperCase()}</Badge>
                           </td>
@@ -893,10 +940,10 @@ export default function ReportsPage() {
                           <td className="py-3 px-3 font-bold text-slate-900">{row.clientName}</td>
                           <td className="py-3 px-3 text-slate-600">{row.country}</td>
                           <td className="py-3 px-3 text-right text-slate-700">{row.activeOrdersCount}</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${formatNumber(row.totalInvoiced)}</td>
-                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">${formatNumber(row.totalPaid)}</td>
-                          <td className="py-3 px-3 text-right text-rose-600 font-bold">${formatNumber(row.totalOutstanding)}</td>
-                          <td className="py-3 px-3 text-right text-amber-600 font-bold">${formatNumber(row.overdueBalance)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {formatNumber(row.totalInvoiced)}</td>
+                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">Rs {formatNumber(row.totalPaid)}</td>
+                          <td className="py-3 px-3 text-right text-rose-600 font-bold">Rs {formatNumber(row.totalOutstanding)}</td>
+                          <td className="py-3 px-3 text-right text-amber-600 font-bold">Rs {formatNumber(row.overdueBalance)}</td>
                           <td className="py-3 px-3 text-center">
                             <Badge variant={row.collectionRatePercent >= 80 ? "success" : row.collectionRatePercent >= 50 ? "warning" : "danger"}>
                               {row.collectionRatePercent}%
@@ -954,9 +1001,9 @@ export default function ReportsPage() {
                           <td className="py-3 px-3 text-slate-600">{row.orderNumber}</td>
                           <td className="py-3 px-3 text-slate-700">{row.clientName}</td>
                           <td className="py-3 px-3 text-slate-600">{new Date(row.dueDate).toLocaleDateString()}</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${formatNumber(row.invoiceTotal)}</td>
-                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">${formatNumber(row.paidAmount)}</td>
-                          <td className="py-3 px-3 text-right text-rose-600 font-bold">${formatNumber(row.balanceDue)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {formatNumber(row.invoiceTotal)}</td>
+                          <td className="py-3 px-3 text-right text-emerald-600 font-bold">Rs {formatNumber(row.paidAmount)}</td>
+                          <td className="py-3 px-3 text-right text-rose-600 font-bold">Rs {formatNumber(row.balanceDue)}</td>
                           <td className="py-3 px-3 text-right font-bold text-slate-800">{row.daysOverdue} d</td>
                           <td className="py-3 px-3 text-center">
                             <Badge variant={row.agingBucket === "current" ? "success" : row.agingBucket === "1_30_days" ? "warning" : "danger"}>
@@ -1082,8 +1129,8 @@ export default function ReportsPage() {
                           <td className="py-3 px-3 text-right text-slate-700">{row.presentDays} d</td>
                           <td className="py-3 px-3 text-right text-amber-600 font-bold">{row.overtimeHours} hrs</td>
                           <td className="py-3 px-3 text-right text-blue-600 font-bold">{row.pieceRatePieces} pcs</td>
-                          <td className="py-3 px-3 text-right font-bold text-slate-900">${row.pieceRateEarnings.toFixed(2)}</td>
-                          <td className="py-3 px-3 text-right font-bold text-emerald-600">${row.netLaborCost.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-slate-900">Rs {row.pieceRateEarnings.toFixed(2)}</td>
+                          <td className="py-3 px-3 text-right font-bold text-emerald-600">Rs {row.netLaborCost.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>

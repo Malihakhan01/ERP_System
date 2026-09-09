@@ -2,7 +2,7 @@
 // FactoryOS Automated Verification Suite for Phase 2.8: Dispatch, Shipping & Export Logistics Module
 
 import fs from "fs";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@database/database-js";
 
 console.log("================================================================================");
 console.log("FACTORYOS GARMENT ERP — PHASE 2.8 DISPATCH & EXPORT LOGISTICS TEST SUITE");
@@ -37,9 +37,9 @@ try {
   console.log("Reading from process.env");
 }
 
-const supabaseUrl = envConfig.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = envConfig.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const dbUrl = envConfig.NEXT_PUBLIC_DB_URL || process.env.NEXT_PUBLIC_DB_URL;
+const dbKey = envConfig.NEXT_PUBLIC_DB_ANON_KEY || process.env.NEXT_PUBLIC_DB_ANON_KEY;
+const database = (dbUrl && dbKey) ? createClient(dbUrl, dbKey) : null;
 
 async function runTests() {
   const timestamp = Date.now();
@@ -85,7 +85,7 @@ async function runTests() {
 
     assert(
       testDispatchRecord.dispatchNumber === testDispatchNumber && testDispatchRecord.totalPieces === 100,
-      "1. Dispatch record model structure validated with Supabase relational schema",
+      "1. Dispatch record model structure validated with Database relational schema",
       { dispatchNumber: testDispatchRecord.dispatchNumber, totalPieces: testDispatchRecord.totalPieces }
     );
 
@@ -391,37 +391,37 @@ async function runTests() {
     // -------------------------------------------------------------------------
     // TEST 25: Existing Production core contracts intact
     // -------------------------------------------------------------------------
-    const prodDbExists = fs.existsSync("lib/supabase/production-db.ts");
+    const prodDbExists = fs.existsSync("lib/services/production-db.ts");
     assert(prodDbExists, "25. Existing Production core contracts and endpoints verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 26: Existing Stitching module contracts intact
     // -------------------------------------------------------------------------
-    const prodDbCode = fs.readFileSync("lib/supabase/production-db.ts", "utf-8");
+    const prodDbCode = fs.readFileSync("lib/services/production-db.ts", "utf-8");
     assert(prodDbCode.includes("operator_production_logs"), "26. Existing Stitching bundle lifecycle & piece-rate logs verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 27: Existing Finishing module contracts intact
     // -------------------------------------------------------------------------
-    const finishingDbExists = fs.existsSync("lib/supabase/finishing-db.ts");
+    const finishingDbExists = fs.existsSync("lib/services/finishing-db.ts");
     assert(finishingDbExists, "27. Existing Finishing & Washing management contracts verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 28: Existing QA/AQL module contracts intact
     // -------------------------------------------------------------------------
-    const qaDbExists = fs.existsSync("lib/supabase/qa-db.ts");
+    const qaDbExists = fs.existsSync("lib/services/qa-db.ts");
     assert(qaDbExists, "28. Existing QA / AQL 2.5 quality control contracts verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 29: Existing Packing & Cartonization contracts intact
     // -------------------------------------------------------------------------
-    const packingDbExists = fs.existsSync("lib/supabase/packing-db.ts");
+    const packingDbExists = fs.existsSync("lib/services/packing-db.ts");
     assert(packingDbExists, "29. Existing Packing & Cartonization management contracts verified intact");
 
     // -------------------------------------------------------------------------
     // TEST 30: Relational Schema verified in schema.sql
     // -------------------------------------------------------------------------
-    const schemaSql = fs.readFileSync("supabase/schema.sql", "utf-8");
+    const schemaSql = fs.readFileSync("database/schema.sql", "utf-8");
     const hasDispatchRecords = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.dispatch_records");
     const hasDispatchCartons = schemaSql.includes("CREATE TABLE IF NOT EXISTS public.dispatch_cartons");
     assert(

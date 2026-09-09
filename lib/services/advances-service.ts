@@ -4,7 +4,7 @@
 import type { AdvanceRecord } from "../advances-engine";
 import { ADVANCE_STORAGE_KEY } from "../advances-engine";
 
-export async function getAdvancesFromSupabase(): Promise<AdvanceRecord[]> {
+export async function getAdvancesFromDB(): Promise<AdvanceRecord[]> {
   try {
     const res = await fetch("/api/advances");
     const json = await res.json();
@@ -18,7 +18,7 @@ export async function getAdvancesFromSupabase(): Promise<AdvanceRecord[]> {
   return getLocalAdvances();
 }
 
-export async function createAdvanceInSupabase(record: AdvanceRecord): Promise<AdvanceRecord> {
+export async function createAdvanceInDB(record: AdvanceRecord): Promise<AdvanceRecord> {
   const currentLocal = getLocalAdvances();
   const updatedLocal = [record, ...currentLocal];
   setLocalAdvances(updatedLocal);
@@ -40,7 +40,7 @@ export async function createAdvanceInSupabase(record: AdvanceRecord): Promise<Ad
   return record;
 }
 
-export async function updateAdvanceInSupabase(record: AdvanceRecord): Promise<AdvanceRecord> {
+export async function updateAdvanceInDB(record: AdvanceRecord): Promise<AdvanceRecord> {
   const currentLocal = getLocalAdvances();
   const updatedLocal = currentLocal.map((a) => (a.id === record.id ? record : a));
   setLocalAdvances(updatedLocal);
@@ -58,7 +58,7 @@ export async function updateAdvanceInSupabase(record: AdvanceRecord): Promise<Ad
   return record;
 }
 
-export async function deleteAdvanceInSupabase(id: string): Promise<boolean> {
+export async function deleteAdvanceInDB(id: string): Promise<boolean> {
   const currentLocal = getLocalAdvances();
   const updatedLocal = currentLocal.filter((a) => a.id !== id);
   setLocalAdvances(updatedLocal);

@@ -28,10 +28,10 @@ import {
 } from "lucide-react";
 
 import {
-  getPurchasesFromSupabase,
-  createPurchaseInSupabase,
-  updatePurchaseInSupabase,
-  deletePurchaseInSupabase,
+  getPurchasesFromDB,
+  createPurchaseInDB,
+  updatePurchaseInDB,
+  deletePurchaseInDB,
   PurchaseOrder,
   PURCHASES_STORAGE_KEY as STORAGE_KEY,
 } from "@/lib/services/purchases-service";
@@ -92,7 +92,7 @@ export default function PurchasesPage() {
   const loadPurchases = React.useCallback(async (showToast = false) => {
     setLoadingPurchases(true);
     try {
-      const data = await getPurchasesFromSupabase();
+      const data = await getPurchasesFromDB();
       if (data && data.length > 0) {
         setLocalOverride(data);
       }
@@ -257,7 +257,7 @@ export default function PurchasesPage() {
 
     const updated = [newOrder, ...purchaseOrders];
     saveOrdersList(updated);
-    createPurchaseInSupabase(newOrder).catch((err) => console.error(err));
+    createPurchaseInDB(newOrder).catch((err) => console.error(err));
 
     success("Purchase order created successfully", {
       description: `${newOrder.poNumber} has been added to purchase orders.`,
@@ -271,7 +271,7 @@ export default function PurchasesPage() {
     if (!orderToDelete) return;
     const updated = purchaseOrders.filter((po) => po.id !== orderToDelete.id);
     saveOrdersList(updated);
-    deletePurchaseInSupabase(orderToDelete.id, orderToDelete.poNumber).catch((err) => console.error(err));
+    deletePurchaseInDB(orderToDelete.id, orderToDelete.poNumber).catch((err) => console.error(err));
     success("Purchase order deleted", {
       description: `${orderToDelete.poNumber} was removed from purchase orders.`,
     });
@@ -285,7 +285,7 @@ export default function PurchasesPage() {
     );
     saveOrdersList(updated);
     if (targetPo) {
-      updatePurchaseInSupabase({ ...targetPo, status: "received" }).catch((err) => console.error(err));
+      updatePurchaseInDB({ ...targetPo, status: "received" }).catch((err) => console.error(err));
     }
     success("Goods Receipt (GRN) logged", {
       description: "Purchase order marked as Fully Received in warehouse.",

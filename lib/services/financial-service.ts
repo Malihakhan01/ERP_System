@@ -18,8 +18,8 @@ import {
   calculateClientFinancialLedger,
 } from "../financial-reconciliation-engine";
 
-// Database Mode: Pure MySQL 8 / REST API Architecture (Supabase SDK Removed)
-const isSupabaseConfigured = (): boolean => false;
+// Database Mode: Pure MySQL 8 / REST API Architecture (Database SDK Removed)
+const isDatabaseConfigured = (): boolean => false;
 const createClient = (): any => ({
   from: () => ({
     select: () => ({
@@ -88,7 +88,7 @@ export async function getProductionJobFinancialReconciliation(
   costSummary: ProductionCostSummary;
   profitability: JobProfitabilitySummary;
 }> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
+  const database = isDatabaseConfigured() ? createClient() : null;
 
   let jobRow: any = null;
   let materialIssueRows: any[] = [];
@@ -97,11 +97,11 @@ export async function getProductionJobFinancialReconciliation(
   let orderRow: any = null;
   let invoiceRow: any = null;
 
-  if (supabase) {
+  if (database) {
     const [jRes, mRes, oRes] = await Promise.all([
-      supabase.from("production_jobs").select("*").eq("id", jobId).single(),
-      supabase.from("production_material_issues").select("*").eq("production_job_id", jobId),
-      supabase.from("operator_production_logs").select("*").eq("production_job_id", jobId),
+      database.from("production_jobs").select("*").eq("id", jobId).single(),
+      database.from("production_material_issues").select("*").eq("production_job_id", jobId),
+      database.from("operator_production_logs").select("*").eq("production_job_id", jobId),
     ]);
 
     jobRow = jRes.data;
@@ -110,14 +110,14 @@ export async function getProductionJobFinancialReconciliation(
 
     if (jobRow) {
       if (jobRow.cost_estimate_id) {
-        const ceRes = await supabase.from("cost_estimates").select("*").eq("id", jobRow.cost_estimate_id).single();
+        const ceRes = await database.from("cost_estimates").select("*").eq("id", jobRow.cost_estimate_id).single();
         costEstimateRow = ceRes.data;
       }
       if (jobRow.order_id) {
-        const ordRes = await supabase.from("orders").select("*").eq("id", jobRow.order_id).single();
+        const ordRes = await database.from("orders").select("*").eq("id", jobRow.order_id).single();
         orderRow = ordRes.data;
 
-        const invRes = await supabase.from("invoices").select("*").eq("order_id", jobRow.order_id).order("created_at", { ascending: false }).limit(1);
+        const invRes = await database.from("invoices").select("*").eq("order_id", jobRow.order_id).order("created_at", { ascending: false }).limit(1);
         invoiceRow = (invRes.data && invRes.data[0]) || null;
       }
     }
@@ -176,7 +176,7 @@ export async function getProductionJobFinancialReconciliation(
     contractRevenue,
     standardTotalCost,
     costSummary.totalActualCost,
-    orderRow?.currency || invoiceRow?.currency || "USD"
+    orderRow?.currency || invoiceRow?.currency || "PKR"
   );
 
   return {
@@ -194,18 +194,18 @@ export async function getProductionJobFinancialReconciliation(
 export async function getOrderFinancialReconciliation(
   orderId: string
 ): Promise<OrderFinancialSummary> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
+  const database = isDatabaseConfigured() ? createClient() : null;
 
   let orderRow: any = null;
   let costEstimateRow: any = null;
   let jobRows: any[] = [];
   let invoiceRows: any[] = [];
 
-  if (supabase) {
+  if (database) {
     const [oRes, jRes, iRes] = await Promise.all([
-      supabase.from("orders").select("*").eq("id", orderId).single(),
-      supabase.from("production_jobs").select("*").eq("order_id", orderId),
-      supabase.from("invoices").select("*").eq("order_id", orderId),
+      database.from("orders").select("*").eq("id", orderId).single(),
+      database.from("production_jobs").select("*").eq("order_id", orderId),
+      database.from("invoices").select("*").eq("order_id", orderId),
     ]);
 
     orderRow = oRes.data;
@@ -213,7 +213,7 @@ export async function getOrderFinancialReconciliation(
     invoiceRows = iRes.data || [];
 
     if (orderRow?.cost_estimate_id) {
-      const ceRes = await supabase.from("cost_estimates").select("*").eq("id", orderRow.cost_estimate_id).single();
+      const ceRes = await database.from("cost_estimates").select("*").eq("id", orderRow.cost_estimate_id).single();
       costEstimateRow = ceRes.data;
     }
   }
@@ -223,7 +223,7 @@ export async function getOrderFinancialReconciliation(
     order_number: "ORD-2026-001",
     client_name: "Buyer Corp",
     pricing: { quantity: 500, totalValue: 7500 },
-    currency: "USD",
+    currency: "PKR",
   };
 
   const pricing = order.pricing || {};
@@ -239,7 +239,7 @@ export async function getOrderFinancialReconciliation(
 
   // Actual cost from jobs
   let actualCost = 0;
-  if (jobRows.length > 0 && supabase) {
+  if (jobRows.length > 0 && database) {
     for (const j of jobRows) {
       const { costSummary } = await getProductionJobFinancialReconciliation(j.id);
       actualCost += costSummary.totalActualCost;
@@ -257,7 +257,7 @@ export async function getOrderFinancialReconciliation(
     paidAmount,
     standardCost,
     actualCost,
-    order.currency || "USD"
+    order.currency || "PKR"
   );
 }
 
@@ -267,10 +267,10 @@ export async function getOrderFinancialReconciliation(
 export async function getClientFinancialLedger(
   clientId?: string
 ): Promise<ClientFinancialSummary[]> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
-  if (!supabase) return [];
+  const database = isDatabaseConfigured() ? createClient() : null;
+  if (!database) return [];
 
-  let query = supabase.from("clients").select("*").eq("is_archived", false);
+  let query = database.from("clients").select("*").eq("is_archived", false);
   if (clientId) query = query.eq("id", clientId);
 
   const { data: clientRows, error: cltErr } = await query;
@@ -280,9 +280,9 @@ export async function getClientFinancialLedger(
 
   for (const clt of clientRows) {
     const [invRes, ordRes, jobRes] = await Promise.all([
-      supabase.from("invoices").select("*").eq("client_id", clt.id).eq("is_archived", false),
-      supabase.from("orders").select("id, status").eq("client_id", clt.id).eq("is_archived", false),
-      supabase.from("production_jobs").select("id, stage").eq("client_id", clt.id).eq("is_archived", false),
+      database.from("invoices").select("*").eq("client_id", clt.id).eq("is_archived", false),
+      database.from("orders").select("id, status").eq("client_id", clt.id).eq("is_archived", false),
+      database.from("production_jobs").select("id, stage").eq("client_id", clt.id).eq("is_archived", false),
     ]);
 
     const invoices = (invRes.data || []).map((inv: any) => {
@@ -303,7 +303,7 @@ export async function getClientFinancialLedger(
       invoices,
       activeOrders,
       completedJobs,
-      "USD"
+      "PKR"
     );
 
     summaries.push(summary);
@@ -313,12 +313,12 @@ export async function getClientFinancialLedger(
 }
 
 // -----------------------------------------------------------------------------
-// 4. GET FINANCIAL KPIS (AUTHORITATIVE REAL DATA FROM SUPABASE)
+// 4. GET FINANCIAL KPIS (AUTHORITATIVE REAL DATA FROM DATABASE)
 // -----------------------------------------------------------------------------
-export async function getFinancialKPIsFromSupabase(): Promise<FinancialKPIData> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
+export async function getFinancialKPIsFromDB(): Promise<FinancialKPIData> {
+  const database = isDatabaseConfigured() ? createClient() : null;
 
-  if (!supabase) {
+  if (!database) {
     return {
       totalRevenue: 0,
       totalInvoiced: 0,
@@ -333,11 +333,11 @@ export async function getFinancialKPIsFromSupabase(): Promise<FinancialKPIData> 
 
   try {
     const [ordRes, invRes, jobRes, matRes, opRes] = await Promise.all([
-      supabase.from("orders").select("pricing").eq("is_archived", false),
-      supabase.from("invoices").select("pricing, paid_amount, balance_due").eq("is_archived", false),
-      supabase.from("production_jobs").select("id, status").eq("is_archived", false),
-      supabase.from("production_material_issues").select("total_cost"),
-      supabase.from("operator_production_logs").select("total_earnings"),
+      database.from("orders").select("pricing").eq("is_archived", false),
+      database.from("invoices").select("pricing, paid_amount, balance_due").eq("is_archived", false),
+      database.from("production_jobs").select("id, status").eq("is_archived", false),
+      database.from("production_material_issues").select("total_cost"),
+      database.from("operator_production_logs").select("total_earnings"),
     ]);
 
     const totalRevenue = (ordRes.data || []).reduce((sum: number, o: any) => sum + (Number(o.pricing?.totalValue) || 0), 0);
@@ -381,15 +381,15 @@ export async function getFinancialKPIsFromSupabase(): Promise<FinancialKPIData> 
 // -----------------------------------------------------------------------------
 // 5. CREATE CONTROLLED INVOICE FROM DISPATCH RECORD (NO DUPLICATES)
 // -----------------------------------------------------------------------------
-export async function createInvoiceFromDispatchInSupabase(
+export async function createInvoiceFromDispatchInDB(
   dispatchId: string,
   actor: string = "Finance Manager"
 ): Promise<any> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
-  if (!supabase) throw new Error("Supabase is not configured.");
+  const database = isDatabaseConfigured() ? createClient() : null;
+  if (!database) throw new Error("Database is not configured.");
 
   // Fetch dispatch record
-  const { data: dsp, error: dspErr } = await supabase
+  const { data: dsp, error: dspErr } = await database
     .from("dispatch_records")
     .select("*")
     .eq("id", dispatchId)
@@ -399,7 +399,7 @@ export async function createInvoiceFromDispatchInSupabase(
 
   // Check if invoice already exists for this order
   if (dsp.order_id) {
-    const { data: existingInvoices } = await supabase
+    const { data: existingInvoices } = await database
       .from("invoices")
       .select("*")
       .eq("order_id", dsp.order_id)
@@ -413,7 +413,7 @@ export async function createInvoiceFromDispatchInSupabase(
   // Fetch order for pricing details
   let orderData: any = null;
   if (dsp.order_id) {
-    const { data: ord } = await supabase.from("orders").select("*").eq("id", dsp.order_id).single();
+    const { data: ord } = await database.from("orders").select("*").eq("id", dsp.order_id).single();
     orderData = ord;
   }
 
@@ -437,7 +437,7 @@ export async function createInvoiceFromDispatchInSupabase(
     payment_status: "pending",
     issue_date: new Date().toISOString().split("T")[0],
     due_date: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-    currency: orderData?.currency || "USD",
+    currency: orderData?.currency || "PKR",
     pricing: {
       quantity,
       unitPrice,
@@ -463,7 +463,7 @@ export async function createInvoiceFromDispatchInSupabase(
     notes: `Linked to Dispatch Consignment ${dsp.dispatch_number}.`,
   };
 
-  const { data: created, error: createErr } = await supabase
+  const { data: created, error: createErr } = await database
     .from("invoices")
     .insert([newInvoice])
     .select()
@@ -476,7 +476,7 @@ export async function createInvoiceFromDispatchInSupabase(
 // -----------------------------------------------------------------------------
 // 6. RECORD FINANCIAL ADJUSTMENT AUDIT EVENT
 // -----------------------------------------------------------------------------
-export async function recordFinancialAdjustmentInSupabase(payload: {
+export async function recordFinancialAdjustmentInDB(payload: {
   referenceType: string;
   referenceId: string;
   referenceNumber?: string;
@@ -489,7 +489,7 @@ export async function recordFinancialAdjustmentInSupabase(payload: {
   actor?: string;
   notes?: string;
 }): Promise<FinancialAdjustmentRecord> {
-  const supabase = isSupabaseConfigured() ? createClient() : null;
+  const database = isDatabaseConfigured() ? createClient() : null;
 
   const adjRecord: FinancialAdjustmentRecord = {
     id: `adj_${Date.now()}`,
@@ -498,7 +498,7 @@ export async function recordFinancialAdjustmentInSupabase(payload: {
     referenceNumber: payload.referenceNumber,
     category: payload.category,
     amount: Number(payload.amount) || 0,
-    currency: payload.currency || "USD",
+    currency: payload.currency || "PKR",
     previousValue: payload.previousValue,
     newValue: payload.newValue,
     reason: payload.reason,
@@ -507,8 +507,8 @@ export async function recordFinancialAdjustmentInSupabase(payload: {
     createdAt: new Date().toISOString(),
   };
 
-  if (supabase) {
-    const { data, error } = await supabase
+  if (database) {
+    const { data, error } = await database
       .from("financial_adjustments")
       .insert([
         {
@@ -517,7 +517,7 @@ export async function recordFinancialAdjustmentInSupabase(payload: {
           reference_number: payload.referenceNumber || null,
           category: payload.category,
           amount: payload.amount,
-          currency: payload.currency || "USD",
+          currency: payload.currency || "PKR",
           previous_value: payload.previousValue || 0,
           new_value: payload.newValue || 0,
           reason: payload.reason,
@@ -536,7 +536,7 @@ export async function recordFinancialAdjustmentInSupabase(payload: {
         referenceNumber: data.reference_number || undefined,
         category: data.category,
         amount: Number(data.amount) || 0,
-        currency: data.currency || "USD",
+        currency: data.currency || "PKR",
         previousValue: Number(data.previous_value) || 0,
         newValue: Number(data.new_value) || 0,
         reason: data.reason,

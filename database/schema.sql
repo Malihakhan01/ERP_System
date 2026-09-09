@@ -795,7 +795,7 @@ CREATE TABLE `tracking_records` (
     `production_job_id` BIGINT UNSIGNED NULL,
     `current_gate` INT UNSIGNED NOT NULL DEFAULT 1, -- Gate 1 to 9
     `gate_status` VARCHAR(50) NOT NULL DEFAULT 'in_progress', -- in_progress, passed, exception, on_hold
-    `origin_facility` VARCHAR(150) NOT NULL DEFAULT 'Main Garment Plant Karachi',
+    `origin_facility` VARCHAR(150) NOT NULL DEFAULT 'Main Garment Plant Sialkot',
     `destination_port` VARCHAR(150) NOT NULL,
     `current_location` VARCHAR(150) NOT NULL DEFAULT 'Factory Floor',
     `estimated_delivery` DATE NOT NULL,
@@ -923,4 +923,81 @@ CREATE TABLE `audit_logs` (
     INDEX `idx_audit_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- 29. EMPLOYEE TASKS & OPERATIONAL ASSIGNMENTS
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `employee_tasks`;
+CREATE TABLE `employee_tasks` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid` CHAR(36) NOT NULL UNIQUE,
+    `task_number` VARCHAR(50) NOT NULL UNIQUE, -- e.g. TSK-2026-001
+    `title` VARCHAR(255) NOT NULL,
+    `description` TEXT NULL,
+    `task_type` VARCHAR(50) NOT NULL DEFAULT 'general', -- stitching, cutting, qa_inspection, packing, maintenance, machine_setup, general
+    `priority` VARCHAR(20) NOT NULL DEFAULT 'normal', -- low, normal, high, urgent
+    `status` VARCHAR(30) NOT NULL DEFAULT 'assigned', -- assigned, in_progress, completed, cancelled
+    `assigned_to_employee_id` BIGINT UNSIGNED NOT NULL,
+    `assigned_to_name` VARCHAR(150) NOT NULL,
+    `assigned_by_user_id` BIGINT UNSIGNED NULL,
+    `assigned_by_name` VARCHAR(150) NOT NULL DEFAULT 'Factory Admin',
+    `order_id` BIGINT UNSIGNED NULL,
+    `production_job_id` BIGINT UNSIGNED NULL,
+    `due_date` DATE NOT NULL,
+    `due_time` VARCHAR(20) NULL,
+    `completed_at` TIMESTAMP NULL,
+    `completion_notes` TEXT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_task_employee` (`assigned_to_employee_id`),
+    INDEX `idx_task_status` (`status`),
+    INDEX `idx_task_priority` (`priority`),
+    FOREIGN KEY (`assigned_to_employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 30. LIVE USER CHAT, CHANNELS & TEAM MESSAGING
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `chat_messages`;
+DROP TABLE IF EXISTS `chat_participants`;
+DROP TABLE IF EXISTS `chat_conversations`;
+
+CREATE TABLE `chat_conversations` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid` CHAR(36) NOT NULL UNIQUE,
+    `type` ENUM('direct', 'channel') NOT NULL DEFAULT 'direct',
+    `title` VARCHAR(150) NULL,
+    `description` VARCHAR(255) NULL,
+    `created_by` BIGINT UNSIGNED NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chat_participants` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `conversation_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `last_read_message_id` BIGINT UNSIGNED NULL,
+    `last_read_at` TIMESTAMP NULL,
+    `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uniq_conv_user` (`conversation_id`, `user_id`),
+    FOREIGN KEY (`conversation_id`) REFERENCES `chat_conversations` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chat_messages` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `uuid` CHAR(36) NOT NULL UNIQUE,
+    `conversation_id` BIGINT UNSIGNED NOT NULL,
+    `sender_id` BIGINT UNSIGNED NOT NULL,
+    `message` TEXT NOT NULL,
+    `message_type` VARCHAR(20) NOT NULL DEFAULT 'text',
+    `attachment_url` VARCHAR(255) NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_conv_created` (`conversation_id`, `created_at`),
+    FOREIGN KEY (`conversation_id`) REFERENCES `chat_conversations` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
+
